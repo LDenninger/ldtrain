@@ -8,7 +8,7 @@ import { el, formatIteration, formatValue, icon, nearestIndex, setCaret, shortNa
 
 const uPlot = window.uPlot;
 const PLOT_PADDING_PX = 8;
-const MAX_POINTS_WITH_MARKERS = 60;
+const MAX_POINTS_WITH_MARKERS = 12;  // sparser series get hollow markers, denser ones lines only
 const MIN_ZOOM_PX = 4;
 const FRESH_HIGHLIGHT_MS = 2000;
 const AXIS_FONT = '11px "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
@@ -23,7 +23,7 @@ const cards = new Map();   // metric -> card
 const groups = new Map();  // group name -> group
 let hoveredCard = null;
 let firstLoadDone = false;
-const themeColors = { axis: '#5a6470', grid: 'rgba(0,0,0,.07)' };
+const themeColors = { axis: '#5a6470', grid: 'rgba(0,0,0,.07)', surface: '#ffffff' };
 
 // ---- metric names and filter ----
 
@@ -111,7 +111,7 @@ function seriesPair(card, path) {
         },
         {
             label: shortName(path), stroke: color, width: focused ? 2.2 : 1.6, dash, spanGaps: true, show: visible,
-            points: { show: () => pointCount() <= MAX_POINTS_WITH_MARKERS, size: focused ? 6 : 5, fill: color, stroke: color },
+            points: { show: () => pointCount() <= MAX_POINTS_WITH_MARKERS, size: 6, width: 1.5, fill: () => themeColors.surface, stroke: color },
         },
     ];
 }
@@ -675,6 +675,7 @@ function handleTheme() {
     const style = getComputedStyle(document.documentElement);
     themeColors.axis = style.getPropertyValue('--axis').trim();
     themeColors.grid = style.getPropertyValue('--grid').trim();
+    themeColors.surface = style.getPropertyValue('--surface').trim();
     for (const card of cards.values()) {
         card.chart?.redraw(false, true);
         renderCardText(card);
