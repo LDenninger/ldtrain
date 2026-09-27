@@ -5,6 +5,8 @@
   </picture>
 </h1>
 
+<img src="assets/teaser.webp" alt="The ldtrain viewer comparing four runs that fit a photo: a run tree on the left, validation loss, PSNR and SSIM curves of the four runs overlaid, and the reconstruction of each run at step 600." width="40%">
+
 Log deep-learning runs as human-readable files and compare them in a local web viewer.
 
 ldtrain adds logging to an existing training script with one `initialize()` call. Every run is a
