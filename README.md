@@ -6,6 +6,10 @@
 </h1>
 
 [![test](https://github.com/LDenninger/ldtrain/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/LDenninger/ldtrain/actions/workflows/test.yml)
+[![release](https://github.com/LDenninger/ldtrain/actions/workflows/release.yml/badge.svg)](https://github.com/LDenninger/ldtrain/releases)
+[![python](https://img.shields.io/badge/python-3.12%20%7C%203.13-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![ruff](https://img.shields.io/badge/linted%20with-ruff-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
+[![license](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)](LICENSE)
 
 <img src="assets/teaser.webp" alt="The ldtrain viewer comparing four runs that fit a photo: a run tree on the left, validation loss, PSNR and SSIM curves of the four runs overlaid, and the reconstruction of each run at step 600." width="100%">
 
