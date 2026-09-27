@@ -151,3 +151,65 @@ def test_read_run_info_lists_ranks_and_configs(tmp_path: Path) -> None:
     info = reader.read_run_info(run, 'run')
     assert info.ranks == [0, 2] and info.config_files == ['configs/config.yaml']
     assert info.has_metrics and not info.has_visuals
+
+#---------------------------------------------------------------------
+# edge cases
+#---------------------------------------------------------------------
+
+def test_scan_tree_skips_hidden_dirs_and_symlink_loops(tmp_path: Path) -> None:
+    make_run(tmp_path / 'proj' / 'run', log_text='x\n')
+    make_run(tmp_path / '.hidden' / 'run', log_text='x\n')
+    (tmp_path / 'proj' / 'loop').symlink_to(tmp_path, target_is_directory=True)
+    tree = reader.scan_tree(tmp_path)
+    assert tree.num_runs == 1
+    assert [child.name for child in tree.children] == ['proj']
+    assert [child.name for child in tree.children[0].children] == ['run']
+
+
+def test_read_last_iteration_on_thin_files(tmp_path: Path) -> None:
+    empty = tmp_path / 'empty.csv'
+    empty.write_text('')
+    header_only = tmp_path / 'header.csv'
+    header_only.write_text('iteration,a\n')
+    rows = tmp_path / 'rows.csv'
+    rows.write_text('iteration,a\n0,1.0\n12,2.0\n')
+    assert reader.read_last_iteration(empty) is None
+    assert reader.read_last_iteration(header_only) is None
+    assert reader.read_last_iteration(rows) == 12.0
+    assert reader.read_last_iteration(tmp_path / 'missing.csv') is None
+
+
+@pytest.mark.parametrize('cell, expected', [('1.5', 1.5), ('', None), ('nan', None), ('inf', None), ('-inf', None), ('abc', None), ('1e3', 1000.0)])
+def test_parse_value(cell: str, expected: float | None) -> None:
+    assert reader.parse_value(cell) == expected
+
+
+def test_read_metrics_turns_non_finite_cells_into_none(tmp_path: Path) -> None:
+    run = make_run(tmp_path / 'run', csv_text='iteration,a\n0,nan\n1,inf\n2,\n3,4.0\n')
+    chunk = reader.read_metrics(run)
+    assert chunk.columns == ['iteration', 'a'] and chunk.data['a'] == [None, None, None, 4.0]
+
+
+def test_list_visuals_ignores_unknown_files_and_bad_folders(tmp_path: Path) -> None:
+    run = make_run(tmp_path / 'run')
+    (run / 'visuals' / '00000001').mkdir(parents=True)
+    (run / 'visuals' / '00000001' / 'notes.txt').write_text('x')
+    (run / 'visuals' / '00000001' / 'a.png').write_bytes(b'x')
+    (run / 'visuals' / 'not_a_step').mkdir()
+    (run / 'visuals' / 'not_a_step' / 'b.png').write_bytes(b'x')
+    steps = reader.list_visuals(run)
+    assert [(step.step, [f.tag for f in step.files]) for step in steps] == [(1, ['a'])]
+    assert reader.list_visuals(make_run(tmp_path / 'bare')) == []
+
+
+def test_read_log_for_missing_rank_and_offset_past_end(tmp_path: Path) -> None:
+    run = make_run(tmp_path / 'run', log_text='one\ntwo\n')
+    assert reader.read_log(run, rank=3) == reader.LogChunk(text='', offset=0)
+    chunk = reader.read_log(run, offset=999)  # a truncated file restarts from the tail
+    assert chunk.text == 'one\ntwo\n' and chunk.offset == 8 and not chunk.truncated
+
+
+def test_read_run_info_without_configs_or_logs(tmp_path: Path) -> None:
+    run = make_run(tmp_path / 'run', csv_text='iteration\n')
+    info = reader.read_run_info(run, 'run')
+    assert info == reader.RunInfo(path='run', ranks=[], config_files=[], has_metrics=True, has_visuals=False)

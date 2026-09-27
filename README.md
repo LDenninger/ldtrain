@@ -5,6 +5,8 @@
   </picture>
 </h1>
 
+[![test](https://github.com/LDenninger/ldtrain/actions/workflows/test.yml/badge.svg)](https://github.com/LDenninger/ldtrain/actions/workflows/test.yml)
+
 <img src="assets/teaser.webp" alt="The ldtrain viewer comparing four runs that fit a photo: a run tree on the left, validation loss, PSNR and SSIM curves of the four runs overlaid, and the reconstruction of each run at step 600." width="100%">
 
 Log deep-learning runs as human-readable files and compare them in a local web viewer.
@@ -147,7 +149,24 @@ serves them, and `ldtrain.utils` holds the file and image helpers.
 ## 🤝 Contributing
 
 Questions and bug reports go to the [GitHub issues](https://github.com/LDenninger/ldtrain/issues).
-Pull requests are welcome, and larger changes are best discussed in an issue first. By submitting a
+Pull requests are welcome, and larger changes are best discussed in an issue first. Every push and
+pull request runs the suite on Python 3.12 and 3.13, and a `v*` tag builds the wheel and publishes
+a GitHub release.
+
+### Testing
+
+```bash
+uv sync                                          # test tools included
+uv run playwright install chromium               # once, for the browser tests
+uv run pytest                                    # everything, about 30 s
+uv run pytest -m "not browser and not multiprocess"   # the fast core, about 2 s
+uv run pytest --cov=ldtrain --cov-report=term-missing
+```
+
+Tests live in `ldtrain/tests/`, one file per module. `conftest.py` writes a small run tree through
+the public API that the reader, server and browser tests share. Browser tests drive the viewer in
+headless Chromium, and the `multiprocess` tests start two ranks with a gloo process group, so both
+run on a CPU-only machine. By submitting a
 contribution you agree that it is licensed under this project's license and may be included in
 commercial licenses granted by the licensor.
 

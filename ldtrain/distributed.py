@@ -24,6 +24,7 @@ class DistributedConfig(Config):
     local_rank: int = 0
     dist_url: str = 'env://'
     rank: int = 0
+    backend: str = ''  # 'nccl' or 'gloo' once initialized
 
     def __post_init__(self) -> None:
         self._initialized: bool = False
@@ -82,39 +83,58 @@ def initialize(
     global_rank: int = dist.rank,
     dist_url: str = dist.dist_url,
 ) -> bool:
-    """Initialize distributed training mode."""
+    """Initialize the process group: NCCL on a CUDA machine, gloo on a CPU-only one.
 
+    Args:
+        world_size: Number of processes in the group.
+        local_rank: Index of this process on its machine, also its CUDA device.
+        global_rank: Index of this process in the group.
+        dist_url: Rendezvous, `env://` reads `MASTER_ADDR` and `MASTER_PORT`.
+
+    Returns:
+        True once the group is up.
+
+    Raises:
+        DistributedMisconfigured: `dist_url` is `env://` and `MASTER_ADDR` or `MASTER_PORT`
+            is not set.
+        DistributedInitializationFailure: The CUDA device or the process group cannot be
+            set up.
+    """
     dist.update(
         world_size=world_size,
         local_rank=local_rank,
         rank=global_rank,
         dist_url=dist_url,
     )
+    if dist_url == 'env://' and not (os.environ.get('MASTER_ADDR') and os.environ.get('MASTER_PORT')):
+        raise DistributedMisconfigured('dist_url is env:// but MASTER_ADDR or MASTER_PORT is not set')
 
-    if not torch.cuda.is_available():
-        raise DistributedMisconfigured("CUDA is not available. Please check your CUDA installation and setup.")
+    backend = 'nccl' if torch.cuda.is_available() else 'gloo'
+    device_id = None
+    if backend == 'nccl':
+        try:
+            torch.cuda.set_device(local_rank)
+        except Exception as e:
+            raise DistributedInitializationFailure(f"Failed to initialize cuda device '{local_rank}'\n{e}")
+        device_id = torch.device('cuda', local_rank)
 
-    try:
-        torch.cuda.set_device(local_rank)
-    except Exception as e:
-        raise DistributedInitializationFailure(f"Failed to initialize cuda device '{local_rank}'\n{e}")
-
-    logger.debug(f'Initializing process group: rank {global_rank}/{world_size}, local_rank {local_rank}, '
+    logger.debug(f'Initializing {backend} process group: rank {global_rank}/{world_size}, local_rank {local_rank}, '
                  f'dist_url {dist_url}')
     try:
         torch.distributed.init_process_group(
-            backend="nccl",
+            backend=backend,
             init_method=dist_url,
             world_size=world_size,
             rank=global_rank,
-            device_id=torch.device("cuda", local_rank),
+            device_id=device_id,
         )
         torch.distributed.barrier()
     except Exception as e:
         raise DistributedInitializationFailure(f"Failed to initialize distributed process group\n{e}")
 
     dist._initialized = True
-    logger.info(f'Initialized distributed process group: rank {global_rank}/{world_size}, local_rank {local_rank}')
+    dist.backend = backend
+    logger.info(f'Initialized {backend} process group: rank {global_rank}/{world_size}, local_rank {local_rank}')
     return True
 
 
@@ -123,6 +143,7 @@ def finish() -> None:
     if dist.initialized:
         torch.distributed.destroy_process_group()
         dist._initialized = False
+        dist.backend = ''
 
 
 #---------------------------------------------------------------------

@@ -37,9 +37,9 @@ def initialize(
             `<run_dir>/metrics/metrics.csv`, images and videos to
             `<run_dir>/visuals/<step>/`. An existing directory is reused with a warning,
             and its files are appended to. None logs to the console only.
-        use_distributed: Initialize an NCCL process group from the torchrun environment
-            (`RANK`, `LOCAL_RANK`, `WORLD_SIZE`, `MASTER_ADDR`, `MASTER_PORT`). None
-            enables it when `WORLD_SIZE` > 1.
+        use_distributed: Initialize a process group from the torchrun environment
+            (`RANK`, `LOCAL_RANK`, `WORLD_SIZE`, `MASTER_ADDR`, `MASTER_PORT`), NCCL on
+            a CUDA machine and gloo otherwise. None enables it when `WORLD_SIZE` > 1.
         log_level: Minimum level written to the console.
         log_level_file: Minimum level written to the log file.
         only_master_to_console: Silence the console on every rank but 0. Defaults to
@@ -47,7 +47,8 @@ def initialize(
         color: Emit ANSI colors on the console.
 
     Raises:
-        DistributedMisconfigured: If distributed mode is requested without CUDA.
+        DistributedMisconfigured: If distributed mode is requested without a rendezvous
+            address in the environment.
         DistributedInitializationFailure: If the CUDA device or process group cannot be
             set up.
     """
