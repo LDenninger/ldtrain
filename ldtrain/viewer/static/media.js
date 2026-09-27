@@ -7,6 +7,10 @@ import { el, icon, runFileUrl, shortName } from './util.js';
 const mediaEl = document.getElementById('media');
 const statusEl = document.getElementById('mediaStatus');
 const lightboxEl = document.getElementById('lightbox');
+const controlsEl = document.getElementById('mediaControls');
+const stepSlider = document.getElementById('mediaStep');
+const stepValueEl = document.getElementById('mediaStepValue');
+const latestButton = document.getElementById('mediaLatest');
 
 const cards = new Map();  // tag -> card
 let steps = [];           // ascending union of the steps of all selected runs
@@ -137,7 +141,7 @@ function placeAt(parent, node, index) {
 }
 
 function createCard(tag, kind) {
-    const card = { tag, kind, el: el('article', 'card wide'), tiles: new Map() };
+    const card = { tag, kind, el: el('article', 'card'), tiles: new Map() };
     const head = el('div', 'card-head');
     const [prefix, ...rest] = tag.split('/');
     const title = el('span', 'card-title');
@@ -145,36 +149,34 @@ function createCard(tag, kind) {
     else title.append(tag);
     const kindEl = el('span', 'kind');
     kindEl.append(icon(kind === 'video' ? 'play' : 'image'), kind);
-    const controls = el('div', 'media-head-ctl');
-    card.slider = el('input');
-    card.slider.type = 'range';
-    card.slider.min = 0;
-    card.slider.setAttribute('aria-label', `Step for ${tag}`);
-    card.stepEl = el('span', 'num step-value');
-    card.latestButton = el('button', 'tbtn');
-    card.latestButton.append(icon('refresh'), 'Latest');
-    card.latestButton.title = 'Follow the latest step';
-    controls.append(el('span', '', 'Step'), card.slider, card.stepEl, card.latestButton);
-    head.append(title, kindEl, controls);
+    const wideButton = el('button', 'tbtn');
+    wideButton.append(icon('expand'));
+    wideButton.title = 'Full width';
+    wideButton.setAttribute('aria-label', 'Full width');
+    wideButton.setAttribute('aria-pressed', 'false');
+    head.append(title, kindEl, el('span', 'spacer'), wideButton);
     card.tilesEl = el('div', 'tiles');
     card.el.append(head, card.tilesEl);
-
-    card.slider.addEventListener('input', () => {
-        const index = Number(card.slider.value);
-        setMediaStep(index >= steps.length - 1 ? null : steps[index]);
+    wideButton.addEventListener('click', () => {
+        const wide = card.el.classList.toggle('wide');
+        wideButton.setAttribute('aria-pressed', wide);
     });
-    card.latestButton.addEventListener('click', () => setMediaStep(null));
     return card;
+}
+
+/** The one step control shared by every card: the step is global, so the slider is too. */
+function updateControls(tagCount) {
+    controlsEl.hidden = tagCount === 0;
+    const step = currentStep();
+    stepSlider.max = Math.max(0, steps.length - 1);
+    stepSlider.value = Math.max(0, steps.indexOf(step));
+    stepSlider.disabled = steps.length < 2;
+    stepValueEl.textContent = step.toLocaleString();
+    latestButton.setAttribute('aria-pressed', state.mediaStep === null);
 }
 
 function updateCard(card) {
     const step = currentStep();
-    card.slider.max = Math.max(0, steps.length - 1);
-    card.slider.value = Math.max(0, steps.indexOf(step));
-    card.slider.disabled = steps.length < 2;
-    card.stepEl.textContent = step.toLocaleString();
-    card.latestButton.setAttribute('aria-pressed', state.mediaStep === null);
-
     const paths = selectedPaths();
     for (const [path, tile] of [...card.tiles]) {
         if (!paths.includes(path)) {
@@ -221,6 +223,7 @@ export function renderMedia() {
         placeAt(mediaEl, card.el, index);
         updateCard(card);
     });
+    updateControls(tags.length);
     renderStatus(tags.length);
     if (lightbox) renderLightbox();
 }
@@ -289,6 +292,11 @@ export function cycleLightbox(delta) {
 }
 
 export function initMedia() {
+    stepSlider.addEventListener('input', () => {
+        const index = Number(stepSlider.value);
+        setMediaStep(index >= steps.length - 1 ? null : steps[index]);
+    });
+    latestButton.addEventListener('click', () => setMediaStep(null));
     lightboxEl.addEventListener('click', (event) => {
         if (event.target === lightboxEl || event.target.closest('.lb-close')) closeLightbox();
         else if (event.target.closest('.lb-prev')) cycleLightbox(-1);

@@ -86,6 +86,12 @@
       <h2 tabindex="0" role="button"><svg class="icon caret"><use href="#i-chevron-down"/></svg>Media <span class="count" id="mediaCount"></span></h2>
       <div class="section-body">
         <div id="mediaStatus"></div>
+        <div class="media-controls" id="mediaControls" hidden>
+          <label for="mediaStep">Step</label>
+          <input type="range" id="mediaStep" min="0" aria-label="Step shown in every media card">
+          <span class="num step-value" id="mediaStepValue"></span>
+          <button class="tbtn" id="mediaLatest" aria-pressed="true" title="Follow the latest step"><svg class="icon"><use href="#i-refresh"/></svg>Latest</button>
+        </div>
         <div class="grid" id="media"></div>
       </div>
     </section>
