@@ -34,24 +34,28 @@ directory in one dashboard.
 
 ## 📦 Install
 
-With pip:
+Install a release, the latest is on the [releases page](https://github.com/LDenninger/ldtrain/releases).
+Pin the tag with pip or uv, the repository is reached over SSH:
 
 ```bash
-git clone https://github.com/LDenninger/ldtrain.git
-pip install -e "./ldtrain[viewer]"
+pip install "ldtrain[viewer] @ git+ssh://git@github.com/LDenninger/ldtrain@v0.2.3"
+uv add "ldtrain[viewer] @ git+ssh://git@github.com/LDenninger/ldtrain" --tag v0.2.3
 ```
 
-Omit `[viewer]` in environments that only train, and use `[dev]` to also install the test tools.
-
-With [uv](https://docs.astral.sh/uv/), either as a dependency of your project or as a checkout:
+Or download the wheel attached to the release and install the file:
 
 ```bash
-uv add "ldtrain[viewer] @ git+ssh://git@github.com/LDenninger/ldtrain"
+gh release download v0.2.3 --repo LDenninger/ldtrain --pattern '*.whl'
+pip install "ldtrain-0.2.3-py3-none-any.whl[viewer]"
+```
 
+Omit `[viewer]` in environments that only train. For development, clone and install editable with the
+test tools:
+
+```bash
 git clone https://github.com/LDenninger/ldtrain.git && cd ldtrain
 uv sync                          # package, viewer and test tools into .venv, pinned by uv.lock
-uv run ldtrain-viewer runs
-uv run pytest
+pip install -e ".[dev]"          # the same without uv
 ```
 
 ### Dependencies
