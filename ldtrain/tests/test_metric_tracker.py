@@ -84,3 +84,20 @@ def test_concurrent_tracking_writes_every_row(tmp_path: Path) -> None:
     rows = path.read_text().splitlines()[1:]
     assert len(rows) == 200
     assert sorted(int(row.split(',')[0]) for row in rows) == list(range(200))
+
+
+def test_buffer_size_property_validates_and_applies(tmp_path: Path) -> None:
+    path = tmp_path / 'metrics.csv'
+    tracker = MetricTracker(path)
+    assert tracker.buffer_size == 100
+    with pytest.raises(ValueError, match='at least 1'):
+        tracker.buffer_size = 0
+    with pytest.raises(ValueError, match='at least 1'):
+        MetricTracker(tmp_path / 'other.csv', buffer_size=-5)
+    tracker.buffer_size = 2
+    tracker.track('a', 1.0, 0)
+    tracker.track('a', 2.0, 1)
+    tracker.track('a', 3.0, 2)  # third step: the first two are handed off
+    tracker.flush(wait=True)
+    assert path.read_text().splitlines()[1:] == ['0,1.0', '1,2.0', '2,3.0']
+    tracker.close()

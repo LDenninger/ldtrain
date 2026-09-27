@@ -54,6 +54,7 @@ class MetricTracker:
         self.file_path = Path(file_path)
         if self.file_path.exists() and not exist_ok:
             raise FileExistsError(f'{self.file_path} exists, pass exist_ok=True')
+        self._buffer_size = 0
         self.buffer_size = buffer_size
         self._queue: queue.Queue[tuple[int, str, float]] = queue.Queue()
         self._writer_thread: threading.Thread | None = None
@@ -76,6 +77,30 @@ class MetricTracker:
 
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         self.__rewrite_file([])
+
+    #---------------------------------------------------------------------
+    # properties
+    #---------------------------------------------------------------------
+
+    @property
+    def buffer_size(self) -> int:
+        """Number of iterations queued in memory before they are handed to the writer thread.
+
+        The file lags the run by at most this many iterations. Lower it to see rows sooner
+        in the viewer, at the price of more frequent small writes.
+        """
+        return self._buffer_size
+
+    @buffer_size.setter
+    def buffer_size(self, value: int) -> None:
+        """Set the threshold, at least 1. It applies from the next `track` call on.
+
+        Raises:
+            ValueError: If `value` is below 1.
+        """
+        if value < 1:
+            raise ValueError(f'buffer_size must be at least 1, got {value}')
+        self._buffer_size = int(value)
 
     #---------------------------------------------------------------------
     # interface
