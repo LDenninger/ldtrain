@@ -29,7 +29,7 @@ class Config:
     #---------------------------------------------------------------------
     # management
     #---------------------------------------------------------------------
-    
+
     def update_from_dict(self, config: dict, strict: bool = True) -> None:
         self.update(strict=strict, **config)
 
@@ -46,7 +46,7 @@ class Config:
     #---------------------------------------------------------------------
     # loader
     #---------------------------------------------------------------------
-    
+
     @classmethod
     def load_from_file(cls, file_path: str | Path | os.PathLike) -> Self:
         suffix = Path(file_path).suffix
@@ -86,7 +86,7 @@ class Config:
     @classmethod
     def from_args(cls, args: argparse.Namespace, strict: bool = False) -> Self:
         return cls.from_dict(args.__dict__, strict=strict)
-    
+
     #---------------------------------------------------------------------
     # saver
     #---------------------------------------------------------------------

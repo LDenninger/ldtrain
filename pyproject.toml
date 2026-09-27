@@ -41,6 +41,7 @@ dev = [
 dev = [
     "ldtrain[viewer]",
     "httpx",
+    "pre-commit",
     "pytest",
     "pytest-cov",
     "pytest-playwright",

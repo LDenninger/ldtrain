@@ -352,7 +352,7 @@ class LogLevel(int, Enum):
     WARNING = logging.WARNING
     ERROR = logging.ERROR
     CRITICAL = logging.CRITICAL
-    
+
 logging.addLevelName(LogLevel.DEV, 'DEV')
 LogLevelName = Literal["dev", "debug", "info", "warning", "error", "critical"]
 
