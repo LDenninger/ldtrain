@@ -7,6 +7,8 @@ the printed URL. It binds to localhost by default; reach a cluster node through 
 tunnel (`ssh -L 8080:localhost:8080 <node>`).
 """
 import argparse
+import socket
+import sys
 from dataclasses import asdict
 from pathlib import Path
 
@@ -90,9 +92,33 @@ def create_app(root_dir: str | Path) -> FastAPI:
 #---------------------------------------------------------------------
 
 def viewer(root_dir: str, host: str, port: int) -> None:
-    app = create_app(root_dir)
-    print(f'ldtrain viewer on http://{host}:{port} over {Path(root_dir).resolve()}')
-    uvicorn.run(app, host=host, port=port, log_level='warning')
+    """Serve the viewer until Ctrl-C, reporting what it found and where it listens."""
+    root = Path(root_dir).expanduser()
+    if not root.is_dir():
+        sys.exit(f'error: {root} is not a directory')
+    try:
+        with socket.socket() as probe:
+            probe.bind((host, port))
+    except OSError as error:
+        sys.exit(f'error: cannot listen on {host}:{port} ({error.strerror}), pick another port with --port')
+
+    app = create_app(root)
+    num_runs = run_reader.scan_tree(root.resolve()).num_runs
+    url_host = 'localhost' if host in ('127.0.0.1', '0.0.0.0') else host
+    print('ldtrain viewer')
+    print(f'  runs   {root.resolve()}  ({num_runs} found, rescanned every 30 s)')
+    print(f'  open   http://{url_host}:{port}')
+    print('  stop   Ctrl-C')
+    if num_runs == 0:
+        print('  note   a run is a folder holding metrics/metrics.csv, logs/log.txt or visuals/<step>/')
+    if host in ('127.0.0.1', 'localhost'):
+        print(f'  tunnel ssh -L {port}:localhost:{port} {socket.gethostname()}   (from another machine)')
+    sys.stdout.flush()
+    try:
+        uvicorn.run(app, host=host, port=port, log_level='warning')
+    except KeyboardInterrupt:
+        pass
+    print('ldtrain viewer stopped')
 
 
 def parse_args() -> argparse.Namespace:
