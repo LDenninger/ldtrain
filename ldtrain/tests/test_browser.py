@@ -204,6 +204,12 @@ def test_media_cards_step_slider_and_lightbox(view: Page, viewer_url: str) -> No
     expect(pred.locator('.tile')).to_have_count(2)
     expect(pred.locator('.tile').first.locator('.stp')).to_have_text('30')
     expect(pred.locator('.tile').nth(1)).to_have_class('tile missing')
+    #--- the card wraps its tiles, and a tile its unletterboxed image, with only padding and borders to spare ---
+    image = pred.locator('.tile img').first.bounding_box()
+    assert image['width'] == pytest.approx(image['height'])  # the 16×16 image fills its box
+    tiles = [tile.bounding_box()['width'] for tile in pred.locator('.tile').all()]
+    assert tiles[0] == pytest.approx(image['width'] + 2)
+    assert pred.bounding_box()['width'] == pytest.approx(sum(tiles) + 8 + 24 + 2)  # one gap, the tiles padding, the card border
     view.keyboard.press('[')
     expect(pred.locator('.tile').first.locator('.stp')).to_have_text('0')
     expect(view).to_have_url(re.compile('step=0'))
