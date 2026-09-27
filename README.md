@@ -110,6 +110,9 @@ ldtrain-viewer runs        # or: python -m ldtrain.viewer runs
 Open `http://localhost:8765`, or pick another port with `--port`. The viewer binds to localhost
 only. To use it on a remote machine, forward the port with `ssh -L 8765:localhost:8765 <host>`.
 
+Metrics and media are grouped by the `/` segments of their names, to any depth: `train/loss/total`
+sits in the collapsible group `train`, subgroup `loss`.
+
 ## 📁 Run directory
 
 ```
