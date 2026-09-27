@@ -1,8 +1,9 @@
-// Media cards: one card per visual tag, one tile per selected run, a shared step slider and a lightbox.
+// Media cards: one card per visual tag, grouped by its `/` prefixes, one tile per selected run, a shared step slider and a lightbox.
 
 import { peekRunData } from './data.js';
+import { GroupTree, createCardTitle } from './groups.js';
 import { emit, on, runColor, selectedPaths, state } from './state.js';
-import { el, icon, runFileUrl, shortName } from './util.js';
+import { el, icon, placeAt, runFileUrl, shortName } from './util.js';
 
 const mediaEl = document.getElementById('media');
 const statusEl = document.getElementById('mediaStatus');
@@ -13,6 +14,7 @@ const stepValueEl = document.getElementById('mediaStepValue');
 const latestButton = document.getElementById('mediaLatest');
 
 const cards = new Map();  // tag -> card
+const groupTree = new GroupTree(mediaEl, 'media:', 'media-grid');  // media-grid: the media card layout hook
 let steps = [];           // ascending union of the steps of all selected runs
 let entriesByRun = new Map();  // path -> Map(tag -> [{ step, file }] ascending)
 let lightbox = null;      // { tag, path } while open
@@ -131,22 +133,10 @@ function createTile(card, path) {
 
 // ---- cards ----
 
-/**
- * Put `node` at child position `index` of `parent`, touching the DOM only when it is elsewhere.
- * Re-inserting a node detaches it first, which ends a slider drag in progress and pauses a playing video.
- */
-function placeAt(parent, node, index) {
-    const current = parent.children[index] ?? null;
-    if (current !== node) parent.insertBefore(node, current);
-}
-
 function createCard(tag, kind) {
     const card = { tag, kind, el: el('article', 'card'), tiles: new Map() };
     const head = el('div', 'card-head');
-    const [prefix, ...rest] = tag.split('/');
-    const title = el('span', 'card-title');
-    if (rest.length) title.append(el('span', 'pre', `${prefix}/`), rest.join('/'));
-    else title.append(tag);
+    const title = createCardTitle(tag);
     const kindEl = el('span', 'kind');
     kindEl.append(icon(kind === 'video' ? 'play' : 'image'), kind);
     const wideButton = el('button', 'tbtn');
@@ -217,12 +207,12 @@ export function renderMedia() {
             cards.delete(tag);
         }
     }
-    tags.forEach(([tag, kind], index) => {
+    for (const [tag, kind] of tags) {
         if (!cards.has(tag)) cards.set(tag, createCard(tag, kind));
-        const card = cards.get(tag);
-        placeAt(mediaEl, card.el, index);
-        updateCard(card);
-    });
+        updateCard(cards.get(tag));
+    }
+    groupTree.sync(tags.map(([tag]) => ({ key: tag, el: cards.get(tag).el })), true);
+    groupTree.refresh();
     updateControls(tags.length);
     renderStatus(tags.length);
     if (lightbox) renderLightbox();

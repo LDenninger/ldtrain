@@ -188,7 +188,11 @@ main { overflow: auto; min-height: 0; }
 .group > h3 { all: unset; display:flex; align-items:center; gap: 6px; font-size: var(--fs-md); font-weight: 500; cursor:pointer; margin: 0 0 var(--s2); }
 .group > h3 .count { color: var(--text-muted); font-weight: 400; }
 .group > h3 .caret { color: var(--text-muted); }
-.group.collapsed > .grid { display:none; }
+.group.collapsed > .grid, .group.collapsed > .subgroups { display:none; }
+.subgroups { padding-left: var(--s3); border-left: 1px solid var(--border); }
+.subgroups:empty { display:none; }
+.grid:not(:empty) + .subgroups { margin-top: var(--s3); }
+.subgroups > .group:last-child { margin-bottom: 0; }
 .group.collapsed > h3 .preview { display:inline; }
 .group > h3 .preview { display:none; color: var(--text-muted); font-weight: 400; margin-left: var(--s2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr)); gap: var(--s3); }

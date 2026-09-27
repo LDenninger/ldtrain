@@ -1,10 +1,11 @@
 // Metric cards: one uPlot chart per metric column, overlaying every selected run.
 
 import { peekRunData, pollMetrics } from './data.js';
+import { GroupTree, createCardTitle, topGroupOf } from './groups.js';
 import {
     drawOrder, emit, on, runColor, runDash, selectedPaths, state, toggleHidden, withAlpha,
 } from './state.js';
-import { el, formatIteration, formatValue, icon, nearestIndex, setCaret, shortName, smoothEma, swatch } from './util.js';
+import { el, formatIteration, formatValue, icon, nearestIndex, shortName, smoothEma, swatch } from './util.js';
 
 const uPlot = window.uPlot;
 const PLOT_PADDING_PX = 8;
@@ -20,17 +21,12 @@ const groupsEl = document.getElementById('metricGroups');
 const filterInput = document.getElementById('metricFilter');
 
 const cards = new Map();   // metric -> card
-const groups = new Map();  // group name -> group
+const groupTree = new GroupTree(groupsEl);
 let hoveredCard = null;
 let firstLoadDone = false;
 const themeColors = { axis: '#5a6470', grid: 'rgba(0,0,0,.07)', surface: '#ffffff' };
 
 // ---- metric names and filter ----
-
-function groupOf(metric) {
-    const slash = metric.indexOf('/');
-    return slash > 0 ? metric.slice(0, slash) : UNGROUPED;
-}
 
 /** Union of the metric columns of all selected runs, in order of first appearance. */
 function metricNames() {
@@ -373,14 +369,10 @@ function renderCardText(card) {
 }
 
 function createCardElement(card) {
-    const [prefix, ...rest] = card.metric.split('/');
     const article = el('article', 'card');
     article.dataset.metric = card.metric;
     const head = el('div', 'card-head');
-    const title = el('span', 'card-title');
-    title.title = card.metric;
-    if (rest.length) title.append(el('span', 'pre', `${prefix}/`), rest.join('/'));
-    else title.append(card.metric);
+    const title = createCardTitle(card.metric);
     card.valueEl = el('span', 'val');
     card.logButton = el('button', 'tbtn', 'Log');
     const wideButton = el('button', 'tbtn');
@@ -435,41 +427,9 @@ const resizeObserver = new ResizeObserver((entries) => {
     }
 });
 
-function getGroup(name) {
-    if (groups.has(name)) return groups.get(name);
-    const group = { name, el: el('div', 'group'), grid: el('div', 'grid') };
-    const header = el('h3');
-    header.tabIndex = 0;
-    header.setAttribute('role', 'button');
-    group.caretEl = icon('chevron-down', 'icon caret');
-    group.countEl = el('span', 'count');
-    group.previewEl = el('span', 'preview');
-    header.append(group.caretEl, name || 'ungrouped', group.countEl, group.previewEl);
-    group.headerEl = header;
-    group.el.append(header, group.grid);
-    header.addEventListener('click', () => toggleGroup(name));
-    header.addEventListener('keydown', (event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        toggleGroup(name);
-    });
-    groups.set(name, group);
-    groupsEl.append(group.el);
-    return group;
-}
-
-function toggleGroup(name) {
-    const key = name || 'ungrouped';
-    if (state.collapsed.has(key)) state.collapsed.delete(key);
-    else state.collapsed.add(key);
-    applyFilter();
-    emit('collapse');
-}
-
 function addCard(metric, highlight) {
-    const card = { metric, group: groupOf(metric), chart: null, runKeys: [], runSeries: new Map(), pointCount: 0, canLog: false, logActive: false, xRange: null };
+    const card = { metric, group: topGroupOf(metric), chart: null, runKeys: [], runSeries: new Map(), pointCount: 0, canLog: false, logActive: false, xRange: null };
     card.el = createCardElement(card);
-    getGroup(card.group).grid.append(card.el);
     cards.set(metric, card);
     computeRunSeries(card);
     renderCardText(card);
@@ -500,17 +460,7 @@ function syncCards(resort) {
     for (const metric of names) {
         if (!cards.has(metric)) addCard(metric, firstLoadDone);
     }
-    if (resort) {
-        const groupOrder = [...new Set(names.map(groupOf))];
-        for (const name of groupOrder) groupsEl.append(getGroup(name).el);
-        for (const metric of names) getGroup(groupOf(metric)).grid.append(cards.get(metric).el);
-    }
-    for (const [name, group] of [...groups]) {
-        if (!group.grid.children.length) {
-            group.el.remove();
-            groups.delete(name);
-        }
-    }
+    groupTree.sync(names.map((metric) => ({ key: metric, el: cards.get(metric).el })), resort);
     if (selectedPaths().some((path) => peekRunData(path)?.metrics.loaded)) firstLoadDone = true;
 }
 
@@ -584,27 +534,12 @@ function renderErrors() {
 
 /** Show or hide cards and groups by filter and collapse state, and update the counts. */
 function applyFilter() {
-    let visibleCount = 0;
-    for (const group of groups.values()) {
-        const collapsed = state.collapsed.has(group.name || 'ungrouped');
-        const groupCards = [...group.grid.children].map((element) => cards.get(element.dataset.metric));
-        let groupVisible = 0;
-        for (const card of groupCards) {
-            card.el.hidden = !metricMatches(card.metric);
-            if (!card.el.hidden) groupVisible++;
-        }
-        visibleCount += groupVisible;
-        group.el.hidden = groupVisible === 0;
-        group.el.classList.toggle('collapsed', collapsed);
-        group.headerEl.setAttribute('aria-expanded', !collapsed);
-        setCaret(group.caretEl, !collapsed);
-        group.countEl.textContent = String(groupVisible);
-        group.previewEl.textContent = groupCards.filter((card) => !card.el.hidden)
-            .map((card) => card.metric.slice(group.name ? group.name.length + 1 : 0)).join(', ');
-    }
+    for (const card of cards.values()) card.el.hidden = !metricMatches(card.metric);
+    const visibleCount = groupTree.refresh();
+    const groupCount = groupTree.topLevelCount;
     const shown = visibleCount === cards.size ? String(cards.size) : `${visibleCount} of ${cards.size}`;
     document.getElementById('metricCount').textContent = cards.size
-        ? `${shown} metrics${groups.size > 1 ? ` in ${groups.size} groups` : ''}` : '';
+        ? `${shown} metrics${groupCount > 1 ? ` in ${groupCount} groups` : ''}` : '';
     const allLog = cards.size > 0 && [...cards.values()].every((card) => state.logy.has(card.metric));
     document.getElementById('logyAll').setAttribute('aria-pressed', allLog);
     renderGroupChips();

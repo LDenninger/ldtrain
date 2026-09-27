@@ -2,8 +2,10 @@
 import os
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+import ldtrain
 from ldtrain.log.metric_tracker import MetricTracker
 from ldtrain.viewer import reader
 from ldtrain.viewer.reader import PathOutsideRoot
@@ -126,6 +128,18 @@ def test_list_visuals_keeps_tag_subfolders_and_includes_since_step(tmp_path: Pat
     assert [f.tag for f in steps[1].files] == ['train/in']
     assert [step.step for step in reader.list_visuals(run, since_step=10)] == [10, 20]
 
+
+def test_nested_keys_keep_every_level(tmp_path: Path) -> None:
+    run = tmp_path / 'run'
+    ldtrain.initialize(run_dir=run, color=False)
+    ldtrain.log_metrics({'train/loss/total': 1.0, 'train/loss/kl': 0.5, 'loss': 2.0}, step=0)
+    image = np.zeros((4, 4, 3), np.uint8)
+    ldtrain.log_images({'val/images/sample_0': image, 'val/a/b/c/d': image}, step=0)
+    ldtrain.finish()
+
+    assert reader.read_metrics(run).columns == ['iteration', 'train/loss/total', 'train/loss/kl', 'loss']
+    assert [(f.tag, f.path) for f in reader.list_visuals(run)[0].files] == [
+        ('val/a/b/c/d', 'visuals/00000000/val/a/b/c/d.png'), ('val/images/sample_0', 'visuals/00000000/val/images/sample_0.png')]
 
 def test_read_log_tail_and_follow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(reader, 'LOG_CHUNK_BYTES', 64)

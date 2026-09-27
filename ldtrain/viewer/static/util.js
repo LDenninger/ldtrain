@@ -109,6 +109,15 @@ export function el(tag, className = '', text = null) {
     return element;
 }
 
+/**
+ * Put `node` at child position `index` of `parent`, touching the DOM only when it is elsewhere.
+ * Re-inserting a node detaches it first, which ends a slider drag in progress and pauses a playing video.
+ */
+export function placeAt(parent, node, index) {
+    const current = parent.children[index] ?? null;
+    if (current !== node) parent.insertBefore(node, current);
+}
+
 export function swatch(color, dashed, className = 'sw') {
     const element = el('span', dashed ? `${className} dash` : className);
     element.style.setProperty('--c', color);

@@ -6,9 +6,10 @@ import threading
 import time
 from collections.abc import Iterator
 
+import numpy as np
 import pytest
 import uvicorn
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 import ldtrain
 from ldtrain.tests.conftest import RunTree
@@ -214,6 +215,66 @@ def test_media_cards_step_slider_and_lightbox(view: Page, viewer_url: str) -> No
     expect(view.locator('#lightbox .lb-caption')).to_contain_text('step 30')
     view.keyboard.press('Escape')
     expect(view.locator('#lightbox')).not_to_have_class('overlay lightbox open')
+
+
+#---------------------------------------------------------------------
+# nested groups
+#---------------------------------------------------------------------
+
+def attribute_list(locator: Locator, name: str) -> list[str]:
+    return locator.evaluate_all(f'(nodes) => nodes.map((node) => node.dataset.{name})')
+
+
+def test_nested_groups_sort_collapse_and_filter(view: Page, viewer_url: str, run_root: RunTree) -> None:
+    run_dir = run_root.root / 'proj_b' / 'run_nested'
+    ldtrain.initialize(run_dir=run_dir, color=False, log_level='warning')
+    for step in range(2):
+        ldtrain.log_metrics({'loss': 1.0, 'train/lr': 0.1, 'train/loss/total': 0.5, 'train/loss/kl': 0.2, 'val/psnr': 20.0}, step=step)
+    image = np.zeros((8, 8, 3), np.uint8)
+    ldtrain.log_images({'val/pred': image, 'val/images/sample_1': image, 'val/images/sample_0': image, 'depth': image}, step=0)
+    ldtrain.finish()
+    try:
+        open_runs(view, viewer_url, 'proj_b/run_nested')
+        metrics = view.locator('#metricGroups')
+        expect(view.locator('#metricCount')).to_have_text('5 metrics in 3 groups')
+        assert attribute_list(metrics.locator(':scope > .group'), 'path') == ['', 'train', 'val']
+        train = metrics.locator('.group[data-path="train"]')
+        sub = metrics.locator('.group[data-path="train/loss"]')
+        assert attribute_list(train.locator(':scope > .grid > .card'), 'metric') == ['train/lr']
+        assert attribute_list(train.locator(':scope > .subgroups > .group'), 'path') == ['train/loss']
+        assert attribute_list(sub.locator(':scope > .grid > .card'), 'metric') == ['train/loss/total', 'train/loss/kl']
+        expect(train.locator(':scope > h3 .count')).to_have_text('3')
+        expect(sub.locator(':scope > h3')).to_contain_text('loss')
+        expect(sub.locator('.card-title .pre').first).to_have_text('train/loss/')
+
+        sub.locator(':scope > h3').click()
+        expect(sub).to_have_class('group collapsed')
+        expect(sub.locator(':scope > h3 .preview')).to_have_text('total, kl')
+        expect(view.locator('.card[data-metric="train/loss/total"]')).to_be_hidden()
+        expect(view.locator('.card[data-metric="train/lr"]')).to_be_visible()
+        expect(view).to_have_url(re.compile('collapsed=train/loss'))
+        view.reload()
+        expect(sub).to_have_class('group collapsed')
+        sub.locator(':scope > h3').click()
+
+        view.locator('#metricFilter').fill('kl')
+        expect(train.locator(':scope > h3 .count')).to_have_text('1')
+        expect(metrics.locator('.group[data-path="val"]')).to_be_hidden()
+        view.locator('#metricFilter').fill('')
+
+        media = view.locator('#media')
+        expect(view.locator('#mediaCount')).to_have_text('4 tags')
+        assert attribute_list(media.locator(':scope > .group'), 'path') == ['', 'val']
+        val = media.locator('.group[data-path="val"]')
+        assert attribute_list(val.locator(':scope > .grid > .card'), 'key') == ['val/pred']
+        assert attribute_list(media.locator('.group[data-path="val/images"] > .grid > .card'), 'key') == ['val/images/sample_0', 'val/images/sample_1']
+        val.locator(':scope > h3').click()
+        expect(val).to_have_class('group collapsed')
+        expect(view).to_have_url(re.compile('collapsed=media:val'))
+        expect(metrics.locator('.group[data-path="val"]')).not_to_have_class('group collapsed')
+    finally:
+        ldtrain.initialize(color=False)
+        shutil.rmtree(run_dir)
 
 
 #---------------------------------------------------------------------
