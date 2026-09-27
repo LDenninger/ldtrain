@@ -4,14 +4,14 @@ import { peekRunData, pollMetrics } from './data.js';
 import {
     drawOrder, emit, on, runColor, runDash, selectedPaths, state, toggleHidden, withAlpha,
 } from './state.js';
-import { el, formatIteration, formatValue, nearestIndex, shortName, smoothEma, swatch } from './util.js';
+import { el, formatIteration, formatValue, icon, nearestIndex, setCaret, shortName, smoothEma, swatch } from './util.js';
 
 const uPlot = window.uPlot;
 const PLOT_PADDING_PX = 8;
 const MAX_POINTS_WITH_MARKERS = 60;
 const MIN_ZOOM_PX = 4;
 const FRESH_HIGHLIGHT_MS = 2000;
-const AXIS_FONT = '11px ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace';
+const AXIS_FONT = '11px "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 const UNGROUPED = '';
 
 const statusEl = document.getElementById('metricStatus');
@@ -147,6 +147,7 @@ function chartOptions(card) {
         legend: { show: false },
         cursor: {
             sync: { key: 'ldtrain' },
+            y: false,
             drag: { x: true, y: false, setScale: false },
             bind: { dblclick: () => null },
             points: { size: 6 },
@@ -177,8 +178,8 @@ function tooltipRows(card, iteration) {
 }
 
 function renderTooltip(tooltip, card, iteration) {
-    const header = el('div', 'it', 'iter ');
-    header.append(el('b', '', iteration.toLocaleString()), ` · ${card.metric}`);
+    const header = el('div', 'it');
+    header.append(el('b', '', `iteration ${iteration.toLocaleString()}`), el('span', '', card.metric));
     const table = el('table');
     for (const row of tooltipRows(card, iteration)) {
         const tr = el('tr', row.path === state.focused ? 'f' : '');
@@ -359,7 +360,7 @@ function renderCardText(card) {
     const legend = selectedPaths().map((path) => {
         const item = el('span', `leg${state.hidden.has(path) ? ' hidden' : ''}`);
         item.tabIndex = 0;
-        item.title = `${path} · click to show/hide in all cards`;
+        item.title = `${path}. Click to show or hide it in every chart`;
         const value = card.runSeries.has(path) ? formatValue(lastSmoothed(card, path)) : 'n/a';
         item.append(swatch(runColor(path), runDash(path) !== null), `${shortName(path)} `, el('b', 'num', value));
         item.dataset.path = path;
@@ -367,7 +368,7 @@ function renderCardText(card) {
     });
     card.footEl.replaceChildren(...legend);
     card.logButton.disabled = !card.canLog;
-    card.logButton.title = card.canLog ? 'Log-scale y (y)' : 'Log scale needs all values > 0';
+    card.logButton.title = card.canLog ? 'Log scale on the y axis (y)' : 'Log scale needs every value above zero';
     card.logButton.setAttribute('aria-pressed', wantsLog(card));
 }
 
@@ -381,14 +382,17 @@ function createCardElement(card) {
     if (rest.length) title.append(el('span', 'pre', `${prefix}/`), rest.join('/'));
     else title.append(card.metric);
     card.valueEl = el('span', 'val');
-    card.logButton = el('button', 'tbtn', 'log');
-    const wideButton = el('button', 'tbtn', '⤢');
+    card.logButton = el('button', 'tbtn', 'Log');
+    const wideButton = el('button', 'tbtn');
+    wideButton.append(icon('expand'));
     wideButton.title = 'Full width';
+    wideButton.setAttribute('aria-label', 'Full width');
     wideButton.setAttribute('aria-pressed', 'false');
     head.append(title, card.valueEl, card.logButton, wideButton);
 
     card.plotEl = el('div', 'plot skeleton');
-    card.newDataEl = el('button', 'newdata', '›› new data');
+    card.newDataEl = el('button', 'newdata');
+    card.newDataEl.append(icon('refresh'), 'New data');
     card.newDataEl.title = 'New data arrived outside the zoomed range. Click to reset zoom.';
     card.newDataEl.hidden = true;
     card.plotEl.append(card.newDataEl);
@@ -437,7 +441,7 @@ function getGroup(name) {
     const header = el('h3');
     header.tabIndex = 0;
     header.setAttribute('role', 'button');
-    group.caretEl = el('span', 'caret');
+    group.caretEl = icon('chevron-down', 'icon caret');
     group.countEl = el('span', 'count');
     group.previewEl = el('span', 'preview');
     header.append(group.caretEl, name || 'ungrouped', group.countEl, group.previewEl);
@@ -517,7 +521,8 @@ function renderGroupChips() {
     const counts = new Map();
     for (const card of cards.values()) counts.set(card.group, (counts.get(card.group) ?? 0) + 1);
     chipsEl.replaceChildren(...[...counts].filter(([name]) => name !== UNGROUPED).map(([name, count]) => {
-        const chip = el('button', 'gchip', `${name}/ ${count}`);
+        const chip = el('button', 'gchip', `${name}/`);
+        chip.append(el('span', 'count', String(count)));
         chip.title = `Show only ${name}/*`;
         chip.setAttribute('aria-pressed', state.metricFilter === `${name}/`);
         chip.addEventListener('click', () => {
@@ -551,8 +556,8 @@ function renderStatus(visibleCount) {
     } else if (paths.length && !cards.size) {
         statusEl.append(el('div', 'muted', 'No metrics logged yet for the selected runs.'));
     } else if (cards.size && !visibleCount) {
-        const message = el('div', 'muted', `No metric matches “${state.metricFilter}”. `);
-        const clear = el('button', 'linkbtn', 'clear filter');
+        const message = el('div', 'muted', `No metric matches "${state.metricFilter}". `);
+        const clear = el('button', 'linkbtn', 'Clear filter');
         clear.addEventListener('click', () => setMetricFilter(''));
         message.append(clear);
         statusEl.append(message);
@@ -566,7 +571,7 @@ function renderErrors() {
         if (!error) continue;
         const strip = el('div', 'strip error', `${shortName(path)}: ${error} `);
         strip.title = path;
-        const retry = el('button', 'linkbtn', 'retry');
+        const retry = el('button', 'linkbtn', 'Retry');
         retry.addEventListener('click', async () => {
             await pollMetrics(path).catch(() => false);
             metricsDataChanged();
@@ -592,13 +597,14 @@ function applyFilter() {
         group.el.hidden = groupVisible === 0;
         group.el.classList.toggle('collapsed', collapsed);
         group.headerEl.setAttribute('aria-expanded', !collapsed);
-        group.caretEl.textContent = collapsed ? '▸' : '▾';
+        setCaret(group.caretEl, !collapsed);
         group.countEl.textContent = String(groupVisible);
         group.previewEl.textContent = groupCards.filter((card) => !card.el.hidden)
             .map((card) => card.metric.slice(group.name ? group.name.length + 1 : 0)).join(', ');
     }
+    const shown = visibleCount === cards.size ? String(cards.size) : `${visibleCount} of ${cards.size}`;
     document.getElementById('metricCount').textContent = cards.size
-        ? `${visibleCount === cards.size ? cards.size : `${visibleCount} of ${cards.size}`} metrics · ${groups.size} groups` : '';
+        ? `${shown} metrics${groups.size > 1 ? ` in ${groups.size} groups` : ''}` : '';
     const allLog = cards.size > 0 && [...cards.values()].every((card) => state.logy.has(card.metric));
     document.getElementById('logyAll').setAttribute('aria-pressed', allLog);
     renderGroupChips();

@@ -2,7 +2,7 @@
 
 import { peekRunData } from './data.js';
 import { emit, on, runColor, selectedPaths, state } from './state.js';
-import { el, runFileUrl, shortName } from './util.js';
+import { el, icon, runFileUrl, shortName } from './util.js';
 
 const mediaEl = document.getElementById('media');
 const statusEl = document.getElementById('mediaStatus');
@@ -95,7 +95,7 @@ function updateTile(tile, path, tag, kind, step) {
     tile.el.classList.toggle('missing', !entry);
     if (!entry) {
         tile.filePath = null;
-        tile.wrapEl.replaceChildren('no visual yet');
+        tile.wrapEl.replaceChildren('No visual yet');
         tile.stepEl.textContent = '';
         return;
     }
@@ -143,16 +143,18 @@ function createCard(tag, kind) {
     const title = el('span', 'card-title');
     if (rest.length) title.append(el('span', 'pre', `${prefix}/`), rest.join('/'));
     else title.append(tag);
-    const kindEl = el('span', 'muted kind', kind === 'video' ? '▶ video' : '▣ image');
+    const kindEl = el('span', 'kind');
+    kindEl.append(icon(kind === 'video' ? 'play' : 'image'), kind);
     const controls = el('div', 'media-head-ctl');
     card.slider = el('input');
     card.slider.type = 'range';
     card.slider.min = 0;
     card.slider.setAttribute('aria-label', `Step for ${tag}`);
     card.stepEl = el('span', 'num step-value');
-    card.latestButton = el('button', 'tbtn', '⟳ latest');
+    card.latestButton = el('button', 'tbtn');
+    card.latestButton.append(icon('refresh'), 'Latest');
     card.latestButton.title = 'Follow the latest step';
-    controls.append(el('span', '', 'step'), card.slider, card.stepEl, card.latestButton);
+    controls.append(el('span', '', 'Step'), card.slider, card.stepEl, card.latestButton);
     head.append(title, kindEl, controls);
     card.tilesEl = el('div', 'tiles');
     card.el.append(head, card.tilesEl);
@@ -263,8 +265,8 @@ function renderLightbox() {
     const caption = lightboxEl.querySelector('.lb-caption');
     caption.style.setProperty('--c', runColor(lightbox.path));
     if (!entry) {
-        mediaBox.replaceChildren(el('div', 'muted', 'no visual yet'));
-        caption.textContent = `${lightbox.tag} · ${lightbox.path}`;
+        mediaBox.replaceChildren(el('div', 'muted', 'No visual yet'));
+        caption.replaceChildren(el('span', '', lightbox.tag), el('span', 'muted', lightbox.path));
         return;
     }
     const current = mediaBox.firstElementChild;
@@ -274,7 +276,7 @@ function renderLightbox() {
         media.dataset.url = url;
         mediaBox.replaceChildren(media);
     }
-    caption.textContent = `${lightbox.tag} · ${lightbox.path} · step ${entry.step.toLocaleString()}`;
+    caption.replaceChildren(el('span', '', lightbox.tag), el('span', 'muted', lightbox.path), el('span', 'num', `step ${entry.step.toLocaleString()}`));
 }
 
 /** Show the neighbouring selected run in the lightbox (← and →). */

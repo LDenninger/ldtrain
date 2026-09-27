@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ldtrain viewer</title>
 <link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
 <link rel="stylesheet" href="/static/style.css">
 <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
@@ -12,49 +15,66 @@
 </head>
 <body>
 
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-chevron-down" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 16 16"><path d="M10 4L6 8l4 4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></symbol>
+  <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 16 16"><path d="M8 3v10M4 9l4 4 4-4"/></symbol>
+  <symbol id="i-theme" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11A5.5 5.5 0 0 0 8 2.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-help" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M6.3 6.4a1.8 1.8 0 1 1 2.6 1.6c-.6.3-.9.7-.9 1.3M8 11.3v.2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-image" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 10.5l3-3 2.5 2.5 2-2 3.5 3.5"/><circle cx="10" cy="6.5" r=".9" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
 <header class="topbar">
   <span class="brand"><b>ld</b>train</span>
   <span class="crumb" id="rootPath"></span>
   <span class="spacer"></span>
-  <span class="poll" id="pollStatus"><span class="dot" id="pollDot"></span><span id="pollText">connecting…</span></span>
-  <button class="iconbtn" id="themeBtn" title="Theme (d)">◐ <span id="themeLabel">auto</span></button>
-  <button class="iconbtn" id="helpBtn" title="Keyboard shortcuts (?)">?</button>
+  <span class="poll" id="pollStatus"><span class="dot" id="pollDot"></span><span id="pollText">connecting</span></span>
+  <button class="btn ghost" id="themeBtn" title="Theme (d)"><svg class="icon"><use href="#i-theme"/></svg><span id="themeLabel">auto</span></button>
+  <button class="btn ghost square" id="helpBtn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><svg class="icon"><use href="#i-help"/></svg></button>
 </header>
 
 <aside class="sidebar" aria-label="Runs">
   <div class="sidebar-head">
-    <div class="search"><input id="treeSearch" placeholder="Filter runs…" aria-label="Filter runs" autocomplete="off"><kbd>t</kbd></div>
-    <div class="selinfo"><span id="selInfo"></span><button class="linkbtn" id="clearSel">clear <kbd>x</kbd></button></div>
+    <input class="input" id="treeSearch" placeholder="Filter runs" aria-label="Filter runs" autocomplete="off" title="Filter runs (t)">
+    <div class="selinfo"><span id="selInfo"></span><button class="linkbtn" id="clearSel" title="Clear selection (x)">Clear</button></div>
   </div>
   <ul class="tree" id="tree" role="tree" aria-multiselectable="true" aria-label="Run tree"></ul>
-  <div class="sidebar-foot"><span id="treeStats"></span><span>● live ✓ done</span></div>
+  <div class="sidebar-foot"><span id="treeStats"></span><span class="legend"><span class="st live"></span>live<span class="st done"></span>done</span></div>
   <div class="resizer" id="resizer" title="Drag to resize"></div>
 </aside>
 
 <main id="main">
   <div class="toolbar">
     <div class="tb-row" id="chips"></div>
-    <div class="tb-row">
-      <div class="field"><input id="metricFilter" placeholder="Filter metrics (train/, psnr, /^val/)" aria-label="Filter metrics" autocomplete="off"><kbd>/</kbd></div>
+    <div class="tb-row controls">
+      <input class="input" id="metricFilter" placeholder="Filter metrics" aria-label="Filter metrics" autocomplete="off" title="Filter metrics (/). Prefix match like train/, substring, or /regex/">
       <span id="groupChips" class="tb-row"></span>
-      <span class="sep"></span>
+      <span class="spacer"></span>
       <label class="slider">Smoothing <input type="range" id="smooth" min="0" max="0.99" step="0.01" value="0.6"><span class="num" id="smoothVal">0.60</span></label>
-      <span class="sep"></span>
-      <button class="iconbtn" id="logyAll" aria-pressed="false" title="Log-y on all visible cards (Y)">log y</button>
-      <button class="iconbtn" id="syncZoom" aria-pressed="true" title="Share the zoom range across cards">sync zoom</button>
-      <button class="iconbtn" id="resetZoom" title="Reset zoom (z)">reset zoom <kbd>z</kbd></button>
+      <span class="btn-group">
+        <button class="btn" id="logyAll" aria-pressed="false" title="Log scale on every visible chart (Y)">Log y</button>
+        <button class="btn" id="syncZoom" aria-pressed="true" title="Share the zoom range across charts">Sync zoom</button>
+        <button class="btn" id="resetZoom" title="Reset zoom (z)">Reset zoom</button>
+      </span>
     </div>
   </div>
 
   <div class="content">
     <div class="empty" id="emptyState" hidden>
-      <p>Select runs in the tree (<kbd>Space</kbd> or click). <kbd>Shift</kbd>-click for ranges.</p>
-      <p class="muted">Recently updated</p>
+      <h1>Pick runs to compare</h1>
+      <p>Click a run in the tree to add it to the comparison, or click a folder to add every run in it. Hold <kbd>Shift</kbd> to add a range.</p>
+      <p class="recent-label">Recently updated</p>
       <div class="recent-list" id="recentRuns"></div>
     </div>
 
     <section class="section" id="sec-metrics">
-      <h2 tabindex="0" role="button"><span class="caret">▾</span>Metrics <span class="count" id="metricCount"></span></h2>
+      <h2 tabindex="0" role="button"><svg class="icon caret"><use href="#i-chevron-down"/></svg>Metrics <span class="count" id="metricCount"></span></h2>
       <div class="section-body">
         <div id="metricErrors"></div>
         <div id="metricStatus"></div>
@@ -63,7 +83,7 @@
     </section>
 
     <section class="section" id="sec-media">
-      <h2 tabindex="0" role="button"><span class="caret">▾</span>Media <span class="count" id="mediaCount"></span></h2>
+      <h2 tabindex="0" role="button"><svg class="icon caret"><use href="#i-chevron-down"/></svg>Media <span class="count" id="mediaCount"></span></h2>
       <div class="section-body">
         <div id="mediaStatus"></div>
         <div class="grid" id="media"></div>
@@ -71,17 +91,17 @@
     </section>
 
     <section class="section" id="sec-log">
-      <h2 tabindex="0" role="button"><span class="caret">▾</span>Log · Config <span class="count" id="lcRun"></span></h2>
+      <h2 tabindex="0" role="button"><svg class="icon caret"><use href="#i-chevron-down"/></svg>Log and config <span class="count" id="lcRun"></span></h2>
       <div class="section-body two">
         <div class="card" id="logCard">
           <div class="card-head">
-            <span class="card-title">log</span>
-            <select class="sel" id="logRun" aria-label="Log run"></select>
-            <select class="sel" id="logRank" aria-label="Rank"></select>
-            <input class="sel log-filter" id="logFilter" placeholder="Filter lines" aria-label="Filter log lines" autocomplete="off">
+            <span class="card-title">Log</span>
+            <select class="select" id="logRun" aria-label="Log run"></select>
+            <select class="select" id="logRank" aria-label="Rank"></select>
+            <input class="input small log-filter" id="logFilter" placeholder="Filter lines" aria-label="Filter log lines" autocomplete="off">
             <span class="spacer"></span>
             <span id="lvlChips"></span>
-            <button class="tbtn" id="logFollow" aria-pressed="true" title="Keep the view pinned to the newest line">follow</button>
+            <button class="tbtn" id="logFollow" aria-pressed="true" title="Keep the view pinned to the newest line">Follow</button>
           </div>
           <div class="strip error" id="logError" hidden></div>
           <div class="logwrap">
@@ -91,10 +111,10 @@
         </div>
         <div class="card" id="cfgCard">
           <div class="card-head">
-            <span class="card-title" id="cfgTitle">config</span>
-            <select class="sel" id="cfgRun" aria-label="Config run"></select>
+            <span class="card-title" id="cfgTitle">Config</span>
+            <select class="select" id="cfgRun" aria-label="Config run"></select>
             <span class="spacer"></span>
-            <button class="tbtn" id="cfgCopy" title="Copy to clipboard" disabled>copy</button>
+            <button class="tbtn" id="cfgCopy" title="Copy to clipboard" disabled>Copy</button>
           </div>
           <div class="strip error" id="cfgError" hidden></div>
           <pre class="cfgbody" id="cfgBody"></pre>
@@ -109,26 +129,26 @@
     <div class="lb-media"></div>
     <figcaption class="lb-caption"></figcaption>
   </figure>
-  <button class="iconbtn lb-prev" title="Previous run (←)">←</button>
-  <button class="iconbtn lb-next" title="Next run (→)">→</button>
-  <button class="iconbtn lb-close" title="Close (Esc)">×</button>
+  <button class="btn lb lb-prev" title="Previous run (Left arrow)" aria-label="Previous run"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
+  <button class="btn lb lb-next" title="Next run (Right arrow)" aria-label="Next run"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
+  <button class="btn lb lb-close" title="Close (Esc)" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
 </div>
 
 <div class="overlay" id="help" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
   <div class="dialog">
-    <button class="iconbtn dialog-close" title="Close (Esc)">×</button>
+    <button class="btn ghost square dialog-close" title="Close (Esc)" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
     <h2>Keyboard shortcuts</h2>
     <table>
-      <tr><td><kbd>t</kbd></td><td>focus run filter</td><td><kbd>/</kbd></td><td>focus metric filter</td></tr>
-      <tr><td><kbd>↑</kbd><kbd>↓</kbd></td><td>move in tree</td><td><kbd>→</kbd><kbd>←</kbd></td><td>expand / collapse, parent</td></tr>
-      <tr><td><kbd>Space</kbd></td><td>toggle run selection</td><td><kbd>Enter</kbd></td><td>focus run</td></tr>
-      <tr><td><kbd>o</kbd></td><td>solo run (select only this)</td><td><kbd>x</kbd></td><td>clear selection</td></tr>
-      <tr><td><kbd>s</kbd> <kbd>←</kbd><kbd>→</kbd></td><td>smoothing −/+ 0.05</td><td><kbd>y</kbd> / <kbd>Y</kbd></td><td>log-y hovered card / all</td></tr>
-      <tr><td><kbd>z</kbd></td><td>reset zoom</td><td><kbd>[</kbd> <kbd>]</kbd></td><td>media step back / forward</td></tr>
-      <tr><td><kbd>1</kbd>..<kbd>4</kbd></td><td>jump to Metrics, Media, Log, Config</td><td><kbd>d</kbd></td><td>cycle theme</td></tr>
-      <tr><td><kbd>Esc</kbd></td><td>clear filter / close / blur</td><td><kbd>?</kbd></td><td>this overlay</td></tr>
+      <tr><td><kbd>t</kbd></td><td>Focus the run filter</td><td><kbd>/</kbd></td><td>Focus the metric filter</td></tr>
+      <tr><td><kbd>Up</kbd> <kbd>Down</kbd></td><td>Move in the tree</td><td><kbd>Right</kbd> <kbd>Left</kbd></td><td>Expand, collapse or go to the parent</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>Toggle the run</td><td><kbd>Enter</kbd></td><td>Focus the run</td></tr>
+      <tr><td><kbd>o</kbd></td><td>Show only this run</td><td><kbd>x</kbd></td><td>Clear the selection</td></tr>
+      <tr><td><kbd>s</kbd> then <kbd>Left</kbd> <kbd>Right</kbd></td><td>Smoothing by 0.05</td><td><kbd>y</kbd> <kbd>Y</kbd></td><td>Log scale on the hovered chart, on all</td></tr>
+      <tr><td><kbd>z</kbd></td><td>Reset zoom</td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Media step back, forward</td></tr>
+      <tr><td><kbd>1</kbd> to <kbd>4</kbd></td><td>Jump to metrics, media, log, config</td><td><kbd>d</kbd></td><td>Cycle the theme</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Clear a filter, close, or leave a field</td><td><kbd>?</kbd></td><td>This overlay</td></tr>
     </table>
-    <p class="note">Mouse: click a run row to focus and add it, checkbox to toggle, Alt+click to solo, Shift+click for a range. Drag on a chart to zoom x, double-click to reset. Click a chip or legend entry to hide a run everywhere, double-click a chip to focus it.</p>
+    <p class="note">With the mouse: click a run to add and focus it, click its cross or Ctrl-click to remove it, Alt-click to show only that run, Shift-click for a range. Click a folder to select or clear every run in it, and its chevron to expand or collapse it. Drag on a chart to zoom, double-click to reset. Click a chip or legend entry to hide a run everywhere, double-click a chip to focus it.</p>
   </div>
 </div>
 

@@ -1,10 +1,10 @@
 // Run tree in the sidebar: rendering, search filter, mouse selection and keyboard navigation.
 
 import {
-    clearSelection, emit, findNode, focusRun, isLive, on, runColor, runsBelow, selectRun,
+    clearSelection, deselectRun, emit, findNode, focusRun, isLive, on, runColor, runsBelow, selectRun,
     soloRun, state, toggleFolder, toggleRun,
 } from './state.js';
-import { el, formatAge, formatIteration, savePref, shortName } from './util.js';
+import { el, formatAge, formatIteration, icon, savePref, shortName } from './util.js';
 
 const treeEl = document.getElementById('tree');
 const INDENT_PX = 14;
@@ -20,36 +20,39 @@ function isExpanded(folder) {
     return !state.collapsedFolders.has(folder.path) || state.treeFilter.trim() !== '';
 }
 
-function buildCheckbox(checked, partial, color) {
-    const box = el('span', `cb${checked ? ' on' : partial ? ' part' : ''}`, checked ? '✓' : '');
-    box.style.setProperty('--c', color);
-    return box;
-}
-
 function buildRunRow(run) {
     const selected = state.selected.has(run.path);
-    const row = el('div', `row${state.focused === run.path ? ' focused' : ''}`);
-    row.append(el('span', 'caret'), buildCheckbox(selected, false, selected ? runColor(run.path) : 'transparent'));
+    const row = el('div', `row run${selected ? ' selected' : ''}${state.focused === run.path ? ' focused' : ''}`);
+    if (selected) row.style.setProperty('--c', runColor(run.path));
     const name = el('span', 'name', run.name);
     name.title = run.path;
     const meta = el('span', 'meta');
     meta.append(el('span', 'num', formatIteration(run.last_iteration)));
     const live = isLive(run);
-    const status = el('span', `st ${live ? 'live' : 'done'}`, live ? '●' : '✓');
+    const status = el('span', `st ${live ? 'live' : 'done'}`);
     status.title = run.mtime === null ? 'no metrics or log yet'
         : `${live ? 'live' : 'done'}: updated ${formatAge(Date.now() / 1000 - run.mtime)} ago`;
     meta.append(status);
     row.append(name, meta);
+    if (selected) {
+        const remove = el('button', 'x');
+        remove.append(icon('close'));
+        remove.setAttribute('aria-label', `Remove ${run.name} from the selection`);
+        remove.title = 'Remove from the selection';
+        row.append(remove);
+    }
     return row;
 }
 
 function buildFolderRow(folder) {
     const runs = runsBelow(folder);
     const selectedCount = runs.filter((run) => state.selected.has(run.path)).length;
-    const row = el('div', 'row folder');
     const all = selectedCount === runs.length;
-    row.append(el('span', 'caret', isExpanded(folder) ? '▾' : '▸'), buildCheckbox(all, selectedCount > 0, 'var(--text-muted)'));
-    row.append(el('span', 'name', folder.name), el('span', 'meta', `${selectedCount ? `${selectedCount}/` : ''}${runs.length}`));
+    const row = el('div', 'row folder');
+    row.title = all ? 'Click to clear every run in this folder' : 'Click to select every run in this folder';
+    const caret = icon(isExpanded(folder) ? 'chevron-down' : 'chevron-right', 'icon caret');
+    caret.setAttribute('title', isExpanded(folder) ? 'Collapse' : 'Expand');
+    row.append(caret, el('span', 'name', folder.name), el('span', 'meta', `${selectedCount ? `${selectedCount}/` : ''}${runs.length}`));
     return row;
 }
 
@@ -61,7 +64,7 @@ function buildItem(node, parentEl) {
     item.dataset.path = node.path;
     item.tabIndex = -1;
     const row = node.is_run ? buildRunRow(node) : buildFolderRow(node);
-    row.style.paddingLeft = `${8 + node.depth * INDENT_PX}px`;
+    row.style.marginLeft = `${8 + node.depth * INDENT_PX}px`;
     item.append(row);
     parentEl.append(item);
     if (node.is_run) {
@@ -79,7 +82,7 @@ function buildItem(node, parentEl) {
 
 function renderEmptyRoot() {
     const hint = el('li', 'tree-empty');
-    hint.append(el('div', '', 'No runs under'), el('div', 'num', state.root));
+    hint.append(el('div', '', 'No runs found under'), el('div', 'num', state.root));
     hint.append(el('div', 'muted', 'A run is a folder holding one of:'));
     hint.append(el('pre', 'num', '<run>/metrics/metrics.csv\n<run>/logs/log.txt\n<run>/visuals/<step>/…'));
     treeEl.append(hint);
@@ -104,10 +107,11 @@ export function renderTree() {
 
 function renderSummary() {
     const count = state.selected.size;
-    const focused = state.focused ? shortName(state.focused) : '—';
-    document.getElementById('selInfo').textContent = count ? `${count} selected · focus ${focused}` : 'nothing selected';
+    const focused = state.focused ? shortName(state.focused) : 'none';
+    document.getElementById('selInfo').textContent = count ? `${count} selected, focus on ${focused}` : 'No runs selected';
+    document.getElementById('clearSel').hidden = count === 0;
     const folderCount = [...state.folders.values()].filter((folder) => folder.path !== '').length;
-    document.getElementById('treeStats').textContent = `${state.runs.size} runs · ${folderCount} folders`;
+    document.getElementById('treeStats').textContent = `${state.runs.size} runs, ${folderCount} folders`;
 }
 
 // ---- interaction ----
@@ -143,18 +147,18 @@ function handleClick(event) {
     const node = findNode(item.dataset.path);
     if (!node) return;
     moveTabStop(item);
-    const onCheckbox = event.target.classList.contains('cb');
 
     if (!node.is_run) {
-        if (onCheckbox) {
+        if (event.target.closest('.caret')) {
+            setFolderExpanded(node, !isExpanded(node));
+        } else {
             toggleFolder(node);
             emit('selection');
-        } else {
-            setFolderExpanded(node, !isExpanded(node));
         }
         return;
     }
-    if (onCheckbox || event.ctrlKey || event.metaKey) toggleRun(node.path);
+    if (event.target.closest('.x')) deselectRun(node.path);
+    else if (event.ctrlKey || event.metaKey) toggleRun(node.path);
     else if (event.altKey) soloRun(node.path);
     else if (event.shiftKey && state.lastClicked) selectRange(state.lastClicked, node.path);
     else focusRun(node.path);

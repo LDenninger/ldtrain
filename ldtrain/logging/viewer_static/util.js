@@ -56,7 +56,7 @@ export function runFileUrl(run, path) {
 
 /** Format a metric value with 4 significant digits, exponent form for tiny or huge values. */
 export function formatValue(value) {
-    if (value === null || value === undefined || !Number.isFinite(value)) return '—';
+    if (value === null || value === undefined || !Number.isFinite(value)) return 'n/a';
     const magnitude = Math.abs(value);
     if (magnitude !== 0 && (magnitude < 1e-3 || magnitude >= 1e5)) return value.toExponential(2);
     return String(+value.toPrecision(4));
@@ -83,6 +83,23 @@ export function shortName(path) {
 }
 
 // ---- dom ----
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** An inline SVG icon referencing symbol `#i-<name>` of the sprite in index.html. */
+export function icon(name, className = 'icon') {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', className);
+    const use = document.createElementNS(SVG_NS, 'use');
+    use.setAttribute('href', `#i-${name}`);
+    svg.append(use);
+    return svg;
+}
+
+/** Point an existing caret icon at the open or closed chevron. */
+export function setCaret(svg, expanded) {
+    svg.querySelector('use').setAttribute('href', expanded ? '#i-chevron-down' : '#i-chevron-right');
+}
 
 /** Create an element with a class and optional text content (never parsed as HTML). */
 export function el(tag, className = '', text = null) {

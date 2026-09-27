@@ -9,7 +9,7 @@ import {
     runDash, selectedPaths, state, toggleHidden,
 } from './state.js';
 import { focusTree, initTree } from './tree.js';
-import { OfflineError, el, fetchJson, formatAge, isTyping, loadPref, savePref, shortName, swatch } from './util.js';
+import { OfflineError, el, fetchJson, formatAge, icon, isTyping, loadPref, savePref, setCaret, shortName, swatch } from './util.js';
 
 const POLL_MS = 5000;
 const TREE_POLL_MS = 30000;
@@ -38,7 +38,7 @@ async function refreshTree() {
     state.root = response.root;
     indexTree(response.tree);
     poll.lastTreePoll = Date.now();
-    document.getElementById('rootPath').textContent = `▸ ${response.root}`;
+    document.getElementById('rootPath').textContent = response.root;
     document.getElementById('rootPath').title = response.root;
     emit('tree');
 }
@@ -117,10 +117,10 @@ function renderPollStatus() {
         status.title = poll.error;
     } else if (poll.lastSuccess) {
         const seconds = (Date.now() - poll.lastSuccess) / 1000;
-        text.textContent = `live · polled ${seconds < 1.5 ? 'just now' : `${formatAge(seconds)} ago`}`;
+        text.textContent = `updated ${seconds < 1.5 ? 'just now' : `${formatAge(seconds)} ago`}`;
         status.title = 'Polling selected runs every 5 s, the run tree every 30 s';
     } else {
-        text.textContent = 'connecting…';
+        text.textContent = 'connecting';
     }
 }
 
@@ -130,12 +130,17 @@ function buildRunChip(path) {
     const run = state.runs.get(path);
     const chip = el('span', `chip${state.focused === path ? ' focused' : ''}${state.hidden.has(path) ? ' hidden' : ''}`);
     chip.style.setProperty('--c', runColor(path));
-    chip.title = `${path}\nclick: show/hide · double-click: focus`;
+    chip.title = `${path}\nClick to show or hide, double-click to focus`;
     chip.tabIndex = 0;
     chip.dataset.path = path;
     chip.append(swatch(runColor(path), runDash(path) !== null), shortName(path));
-    if (run && isLive(run)) chip.append(el('span', 'pill', 'live'));
-    const remove = el('button', 'x', '×');
+    if (run && isLive(run)) {
+        const live = el('span', 'live');
+        live.title = 'live';
+        chip.append(live);
+    }
+    const remove = el('button', 'x');
+    remove.append(icon('close'));
     remove.setAttribute('aria-label', `Deselect ${shortName(path)}`);
     chip.append(remove);
     return chip;
@@ -145,8 +150,7 @@ function renderChips() {
     const chipsEl = document.getElementById('chips');
     const chips = selectedPaths().map(buildRunChip);
     if (chips.length > 1) {
-        const clear = el('button', 'linkbtn', 'clear ');
-        clear.append(el('kbd', '', 'x'));
+        const clear = el('button', 'linkbtn', 'Clear all');
         clear.addEventListener('click', () => document.getElementById('clearSel').click());
         chips.push(el('span', 'spacer'), clear);
     }
@@ -192,8 +196,8 @@ function renderEmptyState() {
     if (!empty) return;
     const recent = [...state.runs.values()].filter((run) => run.mtime !== null).sort((a, b) => b.mtime - a.mtime).slice(0, 3);
     const buttons = recent.map((run) => {
-        const button = el('button', 'iconbtn recent', run.path);
-        button.title = `updated ${formatAge(Date.now() / 1000 - run.mtime)} ago`;
+        const button = el('button', 'btn recent');
+        button.append(el('span', 'name', run.path), el('span', 'muted', `updated ${formatAge(Date.now() / 1000 - run.mtime)} ago`));
         button.addEventListener('click', () => {
             focusRun(run.path);
             emit('selection');
@@ -210,7 +214,7 @@ function applySectionState() {
         const section = document.getElementById(id);
         const collapsed = state.collapsed.has(name);
         section.classList.toggle('collapsed', collapsed);
-        section.querySelector('h2 .caret').textContent = collapsed ? '▸' : '▾';
+        setCaret(section.querySelector('h2 .caret'), !collapsed);
         section.querySelector('h2').setAttribute('aria-expanded', !collapsed);
     }
 }

@@ -2,7 +2,7 @@
 
 import { loadRunInfo } from './data.js';
 import { on, selectedPaths, state } from './state.js';
-import { ApiError, el, fetchJson, fetchRunFileText, shortName } from './util.js';
+import { ApiError, el, fetchJson, fetchRunFileText, icon, shortName } from './util.js';
 
 const MAX_LOG_LINES = 2000;
 const LEVEL_PREFIX = /^(DEBUG|WARNING|ERROR|CRITICAL|DEV) (?=\[)/;
@@ -124,7 +124,7 @@ function appendLogText(text) {
         scrollLogToBottom();
     } else if (visibleCount) {
         log.unseen += visibleCount;
-        newLinesButton.textContent = `↓ ${log.unseen} new line${log.unseen === 1 ? '' : 's'}`;
+        newLinesButton.replaceChildren(icon('arrow-down'), `${log.unseen} new line${log.unseen === 1 ? '' : 's'}`);
         newLinesButton.hidden = false;
     }
 }
@@ -155,7 +155,7 @@ export async function pollLog() {
         const chunk = await fetchJson('/api/log', { run: log.run, rank: log.rank, offset: log.offset });
         if (generation !== log.generation) return;
         if (log.offset === null && chunk.truncated) {
-            logBody.append(el('div', 'logline muted', '… earlier lines not shown, the log is longer than 256 KB'));
+            logBody.append(el('div', 'logline muted', 'Earlier lines not shown, the log is longer than 256 KB'));
         }
         log.offset = chunk.offset;
         showError(logError, null);
@@ -246,7 +246,7 @@ async function showConfig(run) {
     const generation = config.generation;
     fillRunSelect(cfgRunSelect, run);
     showError(cfgError, null);
-    cfgTitle.textContent = 'config';
+    cfgTitle.textContent = 'Config';
     copyButton.disabled = true;
     if (!run) {
         cfgBody.replaceChildren(el('span', 'muted', 'No run selected.'));
@@ -276,11 +276,11 @@ async function showConfig(run) {
 async function copyConfig() {
     try {
         await navigator.clipboard.writeText(config.text);
-        copyButton.textContent = 'copied';
+        copyButton.textContent = 'Copied';
     } catch {
-        copyButton.textContent = 'copy failed';
+        copyButton.textContent = 'Copy failed';
     }
-    setTimeout(() => (copyButton.textContent = 'copy'), COPY_FEEDBACK_MS);
+    setTimeout(() => (copyButton.textContent = 'Copy'), COPY_FEEDBACK_MS);
 }
 
 // ---- wiring ----
@@ -292,7 +292,7 @@ function handleSelection() {
     const configRun = pickRun(config);
     if (configRun !== config.run) showConfig(configRun);
     else fillRunSelect(cfgRunSelect, config.run);
-    document.getElementById('lcRun').textContent = state.focused ? `focused: ${state.focused}` : '';
+    document.getElementById('lcRun').textContent = state.focused ? `focused on ${shortName(state.focused)}` : '';
 }
 
 function buildLevelChips() {
