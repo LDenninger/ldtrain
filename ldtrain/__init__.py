@@ -1,7 +1,8 @@
 """Shallow logging for deep-learning runs into human-readable files, with a browser viewer.
 
 `initialize()` turns a run directory into a log file, a metrics CSV and a visuals folder, and
-`finish()` closes them. Console logging goes through `info`, `warning`, `error`, `critical`,
+`finish()` closes them, and `catch_exceptions()` guards a block so a failure is logged before the
+run stops or continues. Console logging goes through `info`, `warning`, `error`, `critical`,
 `debug`, `dev` and `log_config`, and run data through `log_metrics`, `log_images` and
 `log_videos`. `run` holds the run's directories, `dist` the process rank and world size, and
 `barrier()` synchronizes ranks. The viewer lives in `ldtrain.viewer` and is started with
@@ -12,7 +13,7 @@ from importlib.metadata import PackageNotFoundError, version
 from ldtrain.config import Config
 from ldtrain.distributed import DistributedConfig, barrier, dist, distributed_barrier
 from ldtrain.exceptions import DistributedError, DistributedInitializationFailure, DistributedMisconfigured
-from ldtrain.lifecycle import finish, initialize
+from ldtrain.lifecycle import catch_exceptions, finish, initialize
 from ldtrain.log.api import log_config, log_images, log_metrics, log_videos
 from ldtrain.log.api import log_critical as critical
 from ldtrain.log.api import log_debug as debug
@@ -30,6 +31,7 @@ except PackageNotFoundError:  # running from a checkout that is not installed
 __all__ = [
     'initialize',
     'finish',
+    'catch_exceptions',
     'info',
     'warning',
     'error',

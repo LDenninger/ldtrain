@@ -63,6 +63,22 @@ for step in range(2000):
 ldtrain.finish()
 ```
 
+Wrap the parts that may fail in `catch_exceptions()`. An exception inside is logged with its
+traceback, then the run stops cleanly, or continues when `critical=False`:
+
+```python
+@ldtrain.catch_exceptions(critical=False)   # log and carry on, the call returns None
+def validate(model, step): ...
+
+with ldtrain.catch_exceptions():            # log, finish() and exit with status 1
+    for step in range(2000):
+        train_step(model)
+        validate(model, step)
+```
+
+When guards are nested, the innermost one decides: an outer guard never sees an exception an inner
+one already handled.
+
 ### Viewer
 
 ```bash
@@ -104,6 +120,7 @@ Everything a training script needs is exported at the package root.
 |---|---|
 | `initialize(run_dir=None, use_distributed=None, ...)` | Open the run: log file, metrics CSV, visuals folder and, under `torchrun`, the NCCL process group |
 | `finish()` | Flush and close everything `initialize()` opened |
+| `catch_exceptions(critical=True)` | Decorator or context manager: log an exception, then stop the run cleanly, or continue when not critical |
 | `info`, `warning`, `error`, `critical`, `debug`, `dev`, `log_config` | Console and log-file messages |
 | `log_metrics`, `log_images`, `log_videos` | Run data at a given step, written by rank 0 |
 | `run` | The run's directories: `root_directory`, `log_dir`, `metrics_dir`, `visual_dir`, `checkpoint_dir`, `config_dir` |

@@ -1,6 +1,11 @@
-"""Framework life cycle: `initialize()` opens logging and the distributed backend, `finish()` closes them."""
+"""Framework life cycle: `initialize()` opens logging and the distributed backend, `finish()` closes
+them, and `catch_exceptions()` guards a block or function so a failure is logged and the run
+either stops cleanly or carries on."""
+import contextlib
 import os
+import sys
 from pathlib import Path
+from types import TracebackType
 
 from ldtrain import distributed
 from ldtrain.distributed import dist
@@ -86,3 +91,52 @@ def finish() -> None:
     metric_tracker.close()
     console.flush_async_streams()
     distributed.finish()
+
+
+#---------------------------------------------------------------------
+# exception guard
+#---------------------------------------------------------------------
+
+class ExceptionGuard(contextlib.ContextDecorator):
+    """Context manager and decorator that logs an exception and then stops the run or continues.
+
+    Only `Exception` subclasses are handled: `KeyboardInterrupt` and `SystemExit` always pass
+    through. When guards are nested, the innermost one handles the exception, so an outer
+    guard never sees an exception an inner one logged.
+
+    Args:
+        critical: Stop the run on an exception: log it as critical, run `finish()` and exit
+            the process with status 1. Under `torchrun` the failed rank makes the launcher
+            terminate the other ranks. False logs the exception as an error and continues
+            after the block, a decorated function then returning None.
+    """
+    def __init__(self, critical: bool = True) -> None:
+        self.critical = critical
+
+    def __enter__(self) -> 'ExceptionGuard':
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, traceback: TracebackType | None) -> bool:
+        if exc is None or not isinstance(exc, Exception):
+            return False
+        if self.critical:
+            api.log_critical(f'{type(exc).__name__}: {exc}\nStopping the run.', exc_info=exc)
+            finish()
+            sys.exit(1)
+        api.log_error(f'{type(exc).__name__}: {exc}\nContinuing.', exc_info=exc)
+        return True
+
+
+def catch_exceptions(critical: bool = True) -> ExceptionGuard:
+    """Guard a block or function: log any exception, then stop the run or continue.
+
+    Args:
+        critical: Stop the run after logging, see `ExceptionGuard`. Defaults to True.
+
+    Example:
+        >>> @ldtrain.catch_exceptions(critical=False)
+        ... def validate(model): ...
+        >>> with ldtrain.catch_exceptions():
+        ...     train(model)
+    """
+    return ExceptionGuard(critical=critical)
