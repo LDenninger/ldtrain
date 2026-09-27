@@ -72,7 +72,7 @@ ldtrain-viewer runs        # or: python -m ldtrain.viewer runs
 Open `http://localhost:8765`, or pick another port with `--port`. The viewer binds to localhost
 only. To use it on a remote machine, forward the port with `ssh -L 8765:localhost:8765 <host>`.
 
-## Run directory
+## 📁 Run directory
 
 ```
 runs/demo/lr1e-3
@@ -96,7 +96,7 @@ are available as `ldtrain.run.checkpoint_dir`, `config_dir`, `log_dir`, `metrics
 
 `metrics.csv` loads with `pandas.read_csv('runs/demo/lr1e-3/metrics/metrics.csv', index_col='iteration')`.
 
-## API
+## 🧩 API
 
 Everything a training script needs is exported at the package root.
 
@@ -121,7 +121,7 @@ Pull requests are welcome, and larger changes are best discussed in an issue fir
 contribution you agree that it is licensed under this project's license and may be included in
 commercial licenses granted by the licensor.
 
-## License
+## 📄 License
 
 [PolyForm Noncommercial 1.0.0](LICENSE) (`PolyForm-Noncommercial-1.0.0`) © 2026 Luis Denninger
 
