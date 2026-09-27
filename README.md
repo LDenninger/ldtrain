@@ -23,7 +23,7 @@ directory in one dashboard.
 - **Run viewer:** a browser dashboard with a nested run tree, metrics of several runs overlaid in
   one chart, smoothing, synced zoom, images and videos by step, logs and configs, updated live
   while a run trains.
-- **I/O utilities:** `ldtrain.utils.io` reads and writes images, videos, JSON and YAML.
+- **I/O utilities:** `ldtrain.utils.files` reads and writes images, videos, JSON and YAML.
 
 ## 📦 Install
 
@@ -57,20 +57,18 @@ for step in range(2000):
         ldtrain.log_images({'val/pred': prediction}, step=step)
         ldtrain.log_videos({'val/rollout': rollout}, step=step)
         ldtrain.info(f'step {step}: loss {loss:.4f}')
-```
 
-Calling `initialize()` again reinitializes logging. An existing run directory is reused with a
-warning, and its files are appended to, so a resumed run continues in place. Under `torchrun`,
-distributed mode is enabled automatically when `WORLD_SIZE` is greater than 1.
+ldtrain.finish()
+```
 
 ### Viewer
 
 ```bash
-python -m ldtrain.logging.viewer runs --port 8080
+ldtrain-viewer runs        # or: python -m ldtrain.viewer runs
 ```
 
-Open `http://127.0.0.1:8080`. The viewer binds to localhost only. To use it on a remote
-machine, forward the port with `ssh -L 8080:localhost:8080 <host>`.
+Open `http://localhost:8765`, or pick another port with `--port`. The viewer binds to localhost
+only. To use it on a remote machine, forward the port with `ssh -L 8765:localhost:8765 <host>`.
 
 ## Run directory
 
@@ -91,10 +89,28 @@ runs/demo/lr1e-3
 ```
 
 ldtrain writes `logs`, `metrics` and `visuals`. After `initialize()`, the paths of all five folders
-are available as `ldtrain.core.run_config.checkpoint_dir`, `config_dir`, `log_dir`, `metrics_dir`
-and `visual_dir`, so checkpoints and configs can be saved into the run as well.
+are available as `ldtrain.run.checkpoint_dir`, `config_dir`, `log_dir`, `metrics_dir` and
+`visual_dir`, so checkpoints and configs can be saved into the run as well.
 
 `metrics.csv` loads with `pandas.read_csv('runs/demo/lr1e-3/metrics/metrics.csv', index_col='iteration')`.
+
+## API
+
+Everything a training script needs is exported at the package root.
+
+| Name | Purpose |
+|---|---|
+| `initialize(run_dir=None, use_distributed=None, ...)` | Open the run: log file, metrics CSV, visuals folder and, under `torchrun`, the NCCL process group |
+| `finish()` | Flush and close everything `initialize()` opened |
+| `info`, `warning`, `error`, `critical`, `debug`, `dev`, `log_config` | Console and log-file messages |
+| `log_metrics`, `log_images`, `log_videos` | Run data at a given step, written by rank 0 |
+| `run` | The run's directories: `root_directory`, `log_dir`, `metrics_dir`, `visual_dir`, `checkpoint_dir`, `config_dir` |
+| `dist` | Process rank and world size: `rank`, `local_rank`, `world_size`, `is_master`, `initialized` |
+| `barrier()`, `distributed_barrier()` | Synchronize ranks, no-ops without a process group |
+| `Config`, `RunConfig`, `DistributedConfig` | Dataclass configs with YAML, JSON and argparse loaders |
+
+The subpackages hold the implementation: `ldtrain.log` writes runs, `ldtrain.viewer` reads and
+serves them, and `ldtrain.utils` holds the file and image helpers.
 
 ## 🤝 Contributing
 
@@ -105,7 +121,7 @@ commercial licenses granted by the licensor.
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE) (`PolyForm-Noncommercial-1.0.0`) © 2026 LDenninger
+[PolyForm Noncommercial 1.0.0](LICENSE) (`PolyForm-Noncommercial-1.0.0`) © 2026 Luis Denninger
 
 Personal, research, educational and other noncommercial use is permitted under the license
 terms. Commercial use requires a separate license: contact luis.denninger@gmail.com.

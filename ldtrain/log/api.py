@@ -6,10 +6,11 @@ import torch
 from omegaconf.dictconfig import DictConfig
 from omegaconf.listconfig import ListConfig
 
-from ldtrain.core import distributed, run_config
-from ldtrain.logging import metric_tracker
-from ldtrain.logging.console import LEVEL_STYLES, LogLevel, LogLevelName, get_logger, is_initialized
-from ldtrain.utils import io
+from ldtrain.distributed import dist
+from ldtrain.log import metric_tracker
+from ldtrain.log.console import LEVEL_STYLES, LogLevel, LogLevelName, get_logger, is_initialized
+from ldtrain.run_config import run
+from ldtrain.utils import files
 
 #---------------------------------------------------------------------
 # text logging
@@ -107,11 +108,11 @@ def log_images(images: dict[str, np.ndarray | torch.Tensor], step: int) -> None:
             `uint8` or floating point in [0, 1].
         step: Training iteration, naming the folder.
     """
-    if not run_config.root_directory or not distributed.is_master:
+    if not run.root_directory or not dist.is_master:
         return
-    step_dir = Path(run_config.visual_dir) / f'{step:08d}'
+    step_dir = Path(run.visual_dir) / f'{step:08d}'
     for tag, image in images.items():
-        io.save_image(image, step_dir / f'{tag}.png')
+        files.save_image(image, step_dir / f'{tag}.png')
 
 
 def log_videos(videos: dict[str, np.ndarray | torch.Tensor], step: int, fps: float = 30.0) -> None:
@@ -128,8 +129,8 @@ def log_videos(videos: dict[str, np.ndarray | torch.Tensor], step: int, fps: flo
         step: Training iteration, naming the folder.
         fps: Playback frame rate. Defaults to 30.
     """
-    if not run_config.root_directory or not distributed.is_master:
+    if not run.root_directory or not dist.is_master:
         return
-    step_dir = Path(run_config.visual_dir) / f'{step:08d}'
+    step_dir = Path(run.visual_dir) / f'{step:08d}'
     for tag, video in videos.items():
-        io.save_video(video, step_dir / f'{tag}.webm', fps=fps, fourcc='VP80')
+        files.save_video(video, step_dir / f'{tag}.webm', fps=fps, fourcc='VP80')

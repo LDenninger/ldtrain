@@ -1,12 +1,12 @@
-"""Tests for `ldtrain.logging.run_reader` against run directories on disk."""
+"""Tests for `ldtrain.viewer.reader` against run directories on disk."""
 import os
 from pathlib import Path
 
 import pytest
 
-from ldtrain.logging import run_reader
-from ldtrain.logging.metric_tracker import MetricTracker
-from ldtrain.logging.run_reader import PathOutsideRoot
+from ldtrain.log.metric_tracker import MetricTracker
+from ldtrain.viewer import reader
+from ldtrain.viewer.reader import PathOutsideRoot
 
 #---------------------------------------------------------------------
 # helpers
@@ -36,10 +36,10 @@ def test_resolve_inside_rejects_escapes(tmp_path: Path) -> None:
     (tmp_path / 'secret.txt').write_text('x')
     os.symlink(tmp_path, root / 'link_out')
 
-    assert run_reader.resolve_inside(root, 'a') == root / 'a'
+    assert reader.resolve_inside(root, 'a') == root / 'a'
     for bad in ['../secret.txt', 'a/../../secret.txt', '/etc/passwd', 'link_out/secret.txt']:
         with pytest.raises(PathOutsideRoot):
-            run_reader.resolve_inside(root, bad)
+            reader.resolve_inside(root, bad)
 
 
 def test_scan_tree_finds_nested_runs_and_prunes_empty_folders(tmp_path: Path) -> None:
@@ -49,7 +49,7 @@ def test_scan_tree_finds_nested_runs_and_prunes_empty_folders(tmp_path: Path) ->
     (tmp_path / 'empty' / 'nothing').mkdir(parents=True)
     (tmp_path / '.hidden' / 'logs').mkdir(parents=True)
 
-    tree = run_reader.scan_tree(tmp_path)
+    tree = reader.scan_tree(tmp_path)
 
     assert tree.path == '' and tree.num_runs == 3
     assert [child.name for child in tree.children] == ['proj']
@@ -69,17 +69,17 @@ def test_read_metrics_full_and_incremental(tmp_path: Path) -> None:
     run = make_run(tmp_path / 'run', csv_text='iteration,loss,lr\n0,1.0,0.1\n1,0.5,\n')
     csv_path = run / 'metrics' / 'metrics.csv'
 
-    full = run_reader.read_metrics(run)
+    full = reader.read_metrics(run)
     assert full.reset and full.columns == ['iteration', 'loss', 'lr']
     assert full.data == {'iteration': [0.0, 1.0], 'loss': [1.0, 0.5], 'lr': [0.1, None]}
 
     append(csv_path, '2,0.25,0.1\n3,nan,inf\n4,0.1')  # last row still being written
-    chunk = run_reader.read_metrics(run, full.offset, full.file_id)
+    chunk = reader.read_metrics(run, full.offset, full.file_id)
     assert not chunk.reset
     assert chunk.data == {'iteration': [2.0, 3.0], 'loss': [0.25, None], 'lr': [0.1, None]}
 
     append(csv_path, ',0.1\n')
-    tail = run_reader.read_metrics(run, chunk.offset, chunk.file_id)
+    tail = reader.read_metrics(run, chunk.offset, chunk.file_id)
     assert tail.data == {'iteration': [4.0], 'loss': [0.1], 'lr': [0.1]}
     assert tail.offset == csv_path.stat().st_size
 
@@ -90,12 +90,12 @@ def test_read_metrics_resets_when_tracker_adds_a_column(tmp_path: Path) -> None:
     tracker = MetricTracker(csv_path)
     tracker.track('loss', 1.0, step=0)
     tracker.flush(wait=True)
-    first = run_reader.read_metrics(tmp_path / 'run')
+    first = reader.read_metrics(tmp_path / 'run')
 
     tracker.track('loss', 0.5, step=1)
     tracker.track('val/psnr', 20.0, step=1)  # new column: the tracker rewrites the file
     tracker.close()
-    second = run_reader.read_metrics(tmp_path / 'run', first.offset, first.file_id)
+    second = reader.read_metrics(tmp_path / 'run', first.offset, first.file_id)
 
     assert second.reset and second.file_id != first.file_id
     assert second.columns == ['iteration', 'loss', 'val/psnr']
@@ -103,7 +103,7 @@ def test_read_metrics_resets_when_tracker_adds_a_column(tmp_path: Path) -> None:
 
 
 def test_read_metrics_missing_file_warns(tmp_path: Path) -> None:
-    chunk = run_reader.read_metrics(make_run(tmp_path / 'run'))
+    chunk = reader.read_metrics(make_run(tmp_path / 'run'))
     assert chunk.warning is not None and chunk.data == {}
 
 #---------------------------------------------------------------------
@@ -119,26 +119,26 @@ def test_list_visuals_keeps_tag_subfolders_and_includes_since_step(tmp_path: Pat
             (step_dir / file_name).parent.mkdir(parents=True, exist_ok=True)
             (step_dir / file_name).write_bytes(b'x')
 
-    steps = run_reader.list_visuals(run)
+    steps = reader.list_visuals(run)
     assert [step.step for step in steps] == [5, 10, 20]
     assert [(f.tag, f.kind, f.path) for f in steps[0].files] == [
         ('val/pred', 'image', 'visuals/00000005/val/pred.png'), ('val/rollout', 'video', 'visuals/00000005/val/rollout.webm')]
     assert [f.tag for f in steps[1].files] == ['train/in']
-    assert [step.step for step in run_reader.list_visuals(run, since_step=10)] == [10, 20]
+    assert [step.step for step in reader.list_visuals(run, since_step=10)] == [10, 20]
 
 
 def test_read_log_tail_and_follow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(run_reader, 'LOG_CHUNK_BYTES', 64)
+    monkeypatch.setattr(reader, 'LOG_CHUNK_BYTES', 64)
     lines = ''.join(f'line {ii:03d}\n' for ii in range(20))  # 9 bytes per line
     run = make_run(tmp_path / 'run', log_text=lines)
     log_path = run / 'logs' / 'log.txt'
 
-    tail = run_reader.read_log(run)
+    tail = reader.read_log(run)
     assert tail.truncated and tail.text.startswith('line ') and tail.text.endswith('line 019\n')
     assert tail.offset == log_path.stat().st_size
 
     append(log_path, 'line 020\npartial')
-    follow = run_reader.read_log(run, offset=tail.offset)
+    follow = reader.read_log(run, offset=tail.offset)
     assert follow.text == 'line 020\n' and not follow.truncated
 
 
@@ -148,6 +148,6 @@ def test_read_run_info_lists_ranks_and_configs(tmp_path: Path) -> None:
     (run / 'configs').mkdir()
     (run / 'configs' / 'config.yaml').write_text('lr: 0.1\n')
 
-    info = run_reader.read_run_info(run, 'run')
+    info = reader.read_run_info(run, 'run')
     assert info.ranks == [0, 2] and info.config_files == ['configs/config.yaml']
     assert info.has_metrics and not info.has_visuals

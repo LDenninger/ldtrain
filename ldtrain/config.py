@@ -139,15 +139,3 @@ class Config:
                 parser.add_argument(f'--{key}', nargs='+', default=value)
             else:
                 raise ValueError(f'Unsupported type: {type(value)}')
-
-
-
-@dataclass
-class MetaConfig(Config):
-    
-    
-    #--- logging ---
-    log_level: str = 'info'
-    log_level_file: str = 'info'
-    only_master_to_console: bool = False
-    console_colored: bool = True

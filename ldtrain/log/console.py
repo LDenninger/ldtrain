@@ -22,7 +22,7 @@ from omegaconf.dictconfig import DictConfig
 from omegaconf.listconfig import ListConfig
 from typing_extensions import Literal, get_args
 
-from ldtrain.core import distributed, meta
+from ldtrain.distributed import dist
 
 STREAM_CLOSE_TIMEOUT_S = 5.0
 
@@ -70,11 +70,6 @@ def initialize(
         reset_logging()
     reset_root_logger()
 
-    meta.log_level = log_level
-    meta.log_level_file = log_level_file
-    meta.only_master_to_console = only_master_to_console
-    meta.console_colored = color
-
     log_level_int = LogLevel[log_level.upper()]
     log_level_file_int = LogLevel[log_level_file.upper()]
 
@@ -82,7 +77,7 @@ def initialize(
     logger.setLevel(min(log_level_int, log_level_file_int))
 
     handlers: list[logging.Handler] = []
-    if distributed.is_master or not only_master_to_console:
+    if dist.is_master or not only_master_to_console:
         console_handler = logging.StreamHandler(cached_log_stream(None))
         console_handler.setLevel(log_level_int)
         console_handler.addFilter(DowngradeWarningLikeErrorsFilter())
@@ -92,7 +87,7 @@ def initialize(
 
     if output_file is not None:
         output_path = Path(output_file)
-        rank_suffix = f'.rank{distributed.rank}' if distributed.rank > 0 else ''
+        rank_suffix = f'.rank{dist.rank}' if dist.rank > 0 else ''
         file_path = output_path.parent / f'{output_path.stem}{rank_suffix}{output_path.suffix or ".txt"}'
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -157,7 +152,7 @@ class AsyncStream:
     """
     def __init__(self, fd: int) -> None:
         self.fd = fd
-        self._queue: queue.SimpleQueue[str | None] = queue.SimpleQueue()
+        self._queue: queue.SimpleQueue[str | threading.Event | None] = queue.SimpleQueue()
         self._thread: threading.Thread | None = threading.Thread(target=self.drain, name='ldtrain-logging',
                                                                  daemon=True)
         self._thread.start()
@@ -170,11 +165,22 @@ class AsyncStream:
             self._queue.put_nowait(text)
 
     def flush(self) -> None:
-        pass
+        pass  # called by every logging handler after each record, so it must never wait
+
+    def wait_drained(self) -> None:
+        """Block until everything enqueued so far is written, within a bounded wait."""
+        if self._thread is None:
+            return
+        drained = threading.Event()
+        self._queue.put_nowait(drained)
+        drained.wait(timeout=STREAM_CLOSE_TIMEOUT_S)
 
     def drain(self) -> None:
-        while (text := self._queue.get()) is not None:
-            self.write_now(text)
+        while (item := self._queue.get()) is not None:
+            if isinstance(item, threading.Event):
+                item.set()
+            else:
+                self.write_now(item)
 
     def write_now(self, text: str) -> None:
         data = memoryview(text.encode('utf-8', errors='replace'))
@@ -199,9 +205,9 @@ class AsyncStream:
             return
         with contextlib.suppress(queue.Empty):
             while True:
-                text = self._queue.get_nowait()
-                if text is not None:
-                    self.write_now(text)
+                item = self._queue.get_nowait()
+                if isinstance(item, str):
+                    self.write_now(item)
 
     def detach_in_child(self) -> None:
         """Write synchronously in a forked child, where the drain thread does not exist.
@@ -222,6 +228,12 @@ def cached_log_stream(file_name: str | None) -> AsyncStream:
         sys.__stdout__.flush()  # type: ignore[union-attr]
         return AsyncStream(sys.__stdout__.fileno())  # type: ignore[union-attr]
     return AsyncStream(os.open(file_name, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644))
+
+
+def flush_async_streams() -> None:
+    """Wait until every log stream has written what was logged so far."""
+    for stream in _async_streams:
+        stream.wait_drained()
 
 
 def close_async_streams() -> None:
@@ -425,7 +437,7 @@ class LoggingFormatter(logging.Formatter):
 
         asctime = getattr(record, "asctime", None) or self.formatTime(record, self._datefmt)
         log_prefix = f"[{asctime}][{Path(record.filename).stem}:{record.lineno}]"
-        rank = distributed.rank
+        rank = dist.rank
         if rank is not None:
             log_prefix += f"[rank:{rank}]"
         try:

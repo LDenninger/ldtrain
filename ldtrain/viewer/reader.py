@@ -16,7 +16,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ldtrain.core.run import RunConfig
+from ldtrain.run_config import RunConfig
 
 METRICS_FILE_NAME = 'metrics.csv'
 LOG_CHUNK_BYTES = 256 * 1024

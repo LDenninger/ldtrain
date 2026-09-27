@@ -14,15 +14,15 @@ class DistributedError(Exception):
         return f'{type(self).__name__}: {self.message}\n{self.config_str()}'
 
     def config_str(self) -> str:
-        from ldtrain.core.distributed import distributed
-        return (f' - master_addr: {distributed.master_addr}\n'
-                f' - master_port: {distributed.master_port}\n'
-                f' - world_size: {distributed.world_size}\n'
-                f' - local_rank: {distributed.local_rank}\n'
-                f' - dist_url: {distributed.dist_url}\n'
-                f' - rank: {distributed.rank}\n'
-                f' - is_master: {distributed.is_master}\n'
-                f' - is_initialized: {distributed.initialized}\n')
+        from ldtrain.distributed import dist
+        return (f' - master_addr: {dist.master_addr}\n'
+                f' - master_port: {dist.master_port}\n'
+                f' - world_size: {dist.world_size}\n'
+                f' - local_rank: {dist.local_rank}\n'
+                f' - dist_url: {dist.dist_url}\n'
+                f' - rank: {dist.rank}\n'
+                f' - is_master: {dist.is_master}\n'
+                f' - is_initialized: {dist.initialized}\n')
 
 
 class DistributedMisconfigured(DistributedError):

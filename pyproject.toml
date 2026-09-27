@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# `python -m ldtrain.logging.viewer <root_dir>`; training code never imports it
+# `python -m ldtrain.viewer <root_dir>` or `ldtrain-viewer`; training code never imports it
 viewer = [
     "fastapi",
     "uvicorn",
@@ -33,6 +33,9 @@ dev = [
     "pytest",
     "ruff",
 ]
+
+[project.scripts]
+ldtrain-viewer = "ldtrain.viewer.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ldtrain"]

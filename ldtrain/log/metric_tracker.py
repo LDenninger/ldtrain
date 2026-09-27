@@ -13,7 +13,8 @@ import queue
 import threading
 from pathlib import Path
 
-from ldtrain.core import distributed, run_config
+from ldtrain.distributed import dist
+from ldtrain.run_config import run
 
 METRICS_FILE_NAME = 'metrics.csv'
 
@@ -198,15 +199,15 @@ tracker: MetricTracker | None = None
 
 
 def initialize() -> None:
-    """Open the metrics CSV of `run_config.root_directory`, appending to an existing one.
+    """Open the metrics CSV of `run.root_directory`, appending to an existing one.
 
     Closes the tracker of a previous call first. Does nothing without a run directory or
     on ranks other than 0.
     """
     global tracker
     close()
-    if run_config.root_directory and distributed.is_master:
-        tracker = MetricTracker(Path(run_config.metrics_dir) / METRICS_FILE_NAME, exist_ok=True)
+    if run.root_directory and dist.is_master:
+        tracker = MetricTracker(Path(run.metrics_dir) / METRICS_FILE_NAME, exist_ok=True)
 
 
 def close() -> None:

@@ -1,12 +1,11 @@
-"""API tests for `ldtrain.logging.viewer` over a run written by the real ldtrain API."""
+"""API tests for `ldtrain.viewer.server` over a run written by the real ldtrain API."""
 
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
 import ldtrain
-from ldtrain.logging import metric_tracker
-from ldtrain.logging.viewer import create_app
+from ldtrain.viewer.server import create_app
 
 RUN = 'project/run_a'
 
@@ -19,7 +18,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> TestClient:
         ldtrain.log_metrics({'train/loss': 1.0 / (step + 1), 'lr': 0.1}, step=step)
     ldtrain.log_images({'val/pred': np.zeros((8, 8, 3), np.uint8)}, step=2)
     ldtrain.info('viewer test line')
-    metric_tracker.close()
+    ldtrain.finish()
     ldtrain.initialize()  # detach logging from the temporary run
     return TestClient(create_app(root))
 

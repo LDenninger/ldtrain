@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 
-from ldtrain.core.config import Config
+from ldtrain.config import Config
 
 
 @dataclass
@@ -44,3 +44,6 @@ class RunConfig(Config):
     @property
     def metrics_dir(self) -> str:
         return os.path.join(self.root_directory, self.PREFERRED_METRICS_DIR)
+
+
+run = RunConfig()

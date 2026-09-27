@@ -7,8 +7,8 @@ from contextlib import contextmanager
 
 import torch
 
-from ldtrain.core.config import Config
-from ldtrain.core.exceptions import DistributedMisconfigured, DistributedInitializationFailure
+from ldtrain.config import Config
+from ldtrain.exceptions import DistributedMisconfigured, DistributedInitializationFailure
 
 logger = logging.getLogger(__name__)
 
@@ -70,21 +70,21 @@ class DistributedConfig(Config):
     def is_master(self) -> bool:
         return self.rank == 0
 
-distributed = DistributedConfig()
+dist = DistributedConfig()
 
 #---------------------------------------------------------------------
 # initialization
 #---------------------------------------------------------------------
 
 def initialize(
-    world_size: int = distributed.world_size,
-    local_rank: int = distributed.local_rank,
-    global_rank: int = distributed.rank,
-    dist_url: str = distributed.dist_url,
+    world_size: int = dist.world_size,
+    local_rank: int = dist.local_rank,
+    global_rank: int = dist.rank,
+    dist_url: str = dist.dist_url,
 ) -> bool:
     """Initialize distributed training mode."""
 
-    distributed.update(
+    dist.update(
         world_size=world_size,
         local_rank=local_rank,
         rank=global_rank,
@@ -113,9 +113,16 @@ def initialize(
     except Exception as e:
         raise DistributedInitializationFailure(f"Failed to initialize distributed process group\n{e}")
 
-    distributed._initialized = True
+    dist._initialized = True
     logger.info(f'Initialized distributed process group: rank {global_rank}/{world_size}, local_rank {local_rank}')
     return True
+
+
+def finish() -> None:
+    """Destroy the process group opened by `initialize()`, a no-op when there is none."""
+    if dist.initialized:
+        torch.distributed.destroy_process_group()
+        dist._initialized = False
 
 
 #---------------------------------------------------------------------
@@ -123,10 +130,10 @@ def initialize(
 #---------------------------------------------------------------------
 
 def barrier(only_master: bool = True, only_non_master: bool = False) -> None:
-    if distributed.initialized:
-        if only_master and distributed.is_master:
+    if dist.initialized:
+        if only_master and dist.is_master:
             torch.distributed.barrier()
-        elif only_non_master and not distributed.is_master:
+        elif only_non_master and not dist.is_master:
             torch.distributed.barrier()
         else:
             torch.distributed.barrier()
@@ -144,9 +151,9 @@ def distributed_barrier(only_master: bool = True):
         - All processes execute the barrier normally.
     """
     try:
-        if distributed.initialized:
+        if dist.initialized:
             if only_master:
-                if not distributed.is_master:
+                if not dist.is_master:
                     torch.distributed.barrier()
             else:
                 torch.distributed.barrier()
