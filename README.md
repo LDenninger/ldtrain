@@ -5,7 +5,7 @@
   </picture>
 </h1>
 
-[![test](https://github.com/LDenninger/ldtrain/actions/workflows/test.yml/badge.svg)](https://github.com/LDenninger/ldtrain/actions/workflows/test.yml)
+[![test](https://github.com/LDenninger/ldtrain/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/LDenninger/ldtrain/actions/workflows/test.yml)
 
 <img src="assets/teaser.webp" alt="The ldtrain viewer comparing four runs that fit a photo: a run tree on the left, validation loss, PSNR and SSIM curves of the four runs overlaid, and the reconstruction of each run at step 600." width="100%">
 
