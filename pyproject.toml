@@ -34,6 +34,15 @@ dev = [
     "ruff",
 ]
 
+# `uv sync` installs the package with the viewer and the test tools; pip users take `[dev]` above
+[dependency-groups]
+dev = [
+    "ldtrain[viewer]",
+    "httpx",
+    "pytest",
+    "ruff",
+]
+
 [project.scripts]
 ldtrain-viewer = "ldtrain.viewer.__main__:main"
 

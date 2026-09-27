@@ -29,12 +29,25 @@ directory in one dashboard.
 
 ## 📦 Install
 
+With pip:
+
 ```bash
 git clone https://github.com/LDenninger/ldtrain.git
 pip install -e "./ldtrain[viewer]"
 ```
 
 Omit `[viewer]` in environments that only train, and use `[dev]` to also install the test tools.
+
+With [uv](https://docs.astral.sh/uv/), either as a dependency of your project or as a checkout:
+
+```bash
+uv add "ldtrain[viewer] @ git+ssh://git@github.com/LDenninger/ldtrain"
+
+git clone https://github.com/LDenninger/ldtrain.git && cd ldtrain
+uv sync                          # package, viewer and test tools into .venv, pinned by uv.lock
+uv run ldtrain-viewer runs
+uv run pytest
+```
 
 ### Dependencies
 
