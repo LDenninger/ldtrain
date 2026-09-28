@@ -1,0 +1,11 @@
+name: Question
+description: Ask how to use ldtrain.
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What you want to do, and what you already tried from the README.
+    validations:
+      required: true
