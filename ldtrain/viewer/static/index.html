@@ -36,7 +36,6 @@
   <span class="crumb" id="rootPath"></span>
   <span class="spacer"></span>
   <span class="poll" id="pollStatus"><span class="dot" id="pollDot"></span><span id="pollText">connecting</span></span>
-  <button class="btn ghost" id="reportBtn" title="Report as PDF (r)" disabled><svg class="icon"><use href="#i-report"/></svg>Report</button>
   <button class="btn ghost" id="themeBtn" title="Theme (d)"><svg class="icon"><use href="#i-theme"/></svg><span id="themeLabel">auto</span></button>
   <button class="btn ghost square" id="helpBtn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><svg class="icon"><use href="#i-help"/></svg></button>
 </header>
@@ -163,35 +162,51 @@
 
 <div class="overlay" id="report" role="dialog" aria-modal="true" aria-labelledby="reportHeading">
   <form class="dialog report-dialog" id="reportForm">
-    <button type="button" class="btn ghost square dialog-close" title="Close (Esc)" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
-    <h2 id="reportHeading">Report</h2>
-    <label class="field"><span>Title</span><input class="input" id="reportTitle" autocomplete="off" maxlength="200"></label>
-    <fieldset>
-      <legend>Runs</legend>
-      <div class="checklist" id="reportRuns"></div>
-    </fieldset>
-    <fieldset>
-      <legend>Metrics <span class="count" id="reportMetricCount"></span><button type="button" class="linkbtn" data-all="reportMetrics">All</button><button type="button" class="linkbtn" data-none="reportMetrics">None</button></legend>
-      <div class="checklist grouped" id="reportMetrics"></div>
-    </fieldset>
-    <fieldset id="reportMediaSet">
-      <legend>Media <span class="count" id="reportMediaCount"></span><button type="button" class="linkbtn" data-all="reportMedia">All</button><button type="button" class="linkbtn" data-none="reportMedia">None</button></legend>
-      <div class="checklist grouped" id="reportMedia"></div>
-      <label class="field inline"><span>Step</span><select class="select" id="reportStep"></select></label>
-    </fieldset>
-    <fieldset>
-      <legend>Layout</legend>
-      <div class="options">
-        <label><input type="checkbox" id="reportSummary" checked> Summary table</label>
-        <label><input type="checkbox" id="reportConfig" checked> Config files</label>
-        <label class="field inline"><span>Pages</span><select class="select" id="reportOrientation"><option value="portrait">A4 portrait</option><option value="landscape">A4 landscape</option></select></label>
+    <div class="rd-head">
+      <h2 id="reportHeading">Report</h2>
+      <button type="button" class="btn ghost square" id="reportClose" title="Close (Esc)" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <label class="rd-title"><span>Title</span><input class="input" id="reportTitle" autocomplete="off" maxlength="200"></label>
+    <div class="rd-body">
+      <div class="rd-side">
+        <section class="rd-block" aria-labelledby="reportRunsLabel">
+          <div class="rd-label"><span id="reportRunsLabel">Runs</span><span class="count num" id="reportRunCount"></span></div>
+          <ul class="rd-runs" id="reportRuns"></ul>
+        </section>
+        <section class="rd-block" aria-labelledby="reportPagesLabel">
+          <div class="rd-label"><span id="reportPagesLabel">Pages</span></div>
+          <div class="seg" role="radiogroup" aria-labelledby="reportPagesLabel">
+            <label><input type="radio" name="orientation" value="portrait" checked><span>Portrait</span></label>
+            <label><input type="radio" name="orientation" value="landscape"><span>Landscape</span></label>
+          </div>
+          <label class="rd-check"><input type="checkbox" class="cb" id="reportSummary" checked><span>Summary table of final values</span></label>
+          <label class="rd-check"><input type="checkbox" class="cb" id="reportConfig" checked><span>Config files</span></label>
+        </section>
+        <p class="rd-note" id="reportViewNote"></p>
       </div>
-      <p class="note" id="reportViewNote"></p>
-    </fieldset>
-    <div class="strip error" id="reportError" hidden></div>
-    <div class="dialog-foot">
+      <div class="rd-main">
+        <div class="rd-tabs" role="tablist" aria-label="Report content">
+          <button type="button" role="tab" class="rd-tab" id="reportTabMetrics" aria-controls="reportPaneMetrics" aria-selected="true">Metrics <span class="count num" id="reportMetricCount"></span></button>
+          <button type="button" role="tab" class="rd-tab" id="reportTabMedia" aria-controls="reportPaneMedia" aria-selected="false">Media <span class="count num" id="reportMediaCount"></span></button>
+          <span class="spacer"></span>
+          <input class="input small" id="reportFilter" placeholder="Filter" aria-label="Filter the list" autocomplete="off">
+          <button type="button" class="linkbtn" id="reportAll">All</button>
+          <button type="button" class="linkbtn" id="reportNone">None</button>
+        </div>
+        <div class="rd-pane" id="reportPaneMetrics" role="tabpanel" aria-labelledby="reportTabMetrics">
+          <ul class="ctree" id="reportMetrics" role="tree" aria-multiselectable="true" aria-label="Metrics"></ul>
+        </div>
+        <div class="rd-pane" id="reportPaneMedia" role="tabpanel" aria-labelledby="reportTabMedia" hidden>
+          <ul class="ctree" id="reportMedia" role="tree" aria-multiselectable="true" aria-label="Media tags"></ul>
+          <label class="rd-step"><span>Step</span><select class="select" id="reportStep"></select><span class="muted">each run shows its latest visual up to this step</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="rd-foot">
+      <div class="strip error" id="reportError" role="alert" hidden></div>
+      <span class="spacer"></span>
       <button type="button" class="btn" id="reportCancel">Cancel</button>
-      <button type="submit" class="btn primary" id="reportGenerate"><svg class="icon"><use href="#i-arrow-down"/></svg>Download PDF</button>
+      <button type="submit" class="btn primary" id="reportGenerate"><svg class="icon"><use href="#i-arrow-down"/></svg><span>Download PDF</span></button>
     </div>
   </form>
 </div>

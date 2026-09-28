@@ -150,11 +150,19 @@ function buildRunChip(path) {
 function renderChips() {
     const chipsEl = document.getElementById('chips');
     const chips = selectedPaths().map(buildRunChip);
-    if (chips.length > 1) {
+    if (!chips.length) return chipsEl.replaceChildren();
+    chips.push(el('span', 'spacer'));
+    if (state.selected.size > 1) {
         const clear = el('button', 'linkbtn', 'Clear all');
         clear.addEventListener('click', () => document.getElementById('clearSel').click());
-        chips.push(el('span', 'spacer'), clear);
+        chips.push(clear);
     }
+    const report = el('button', 'btn report-btn');
+    report.id = 'reportBtn';
+    report.title = 'Download the selected runs as a PDF report (r)';
+    report.append(icon('report'), 'Report');
+    report.addEventListener('click', openReport);
+    chips.push(report);
     chipsEl.replaceChildren(...chips);
 }
 

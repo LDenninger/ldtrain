@@ -114,11 +114,12 @@ only. To use it on a remote machine, forward the port with `ssh -L 8765:localhos
 Metrics and media are grouped by the `/` segments of their names, to any depth: `train/loss/total`
 sits in the collapsible group `train`, subgroup `loss`.
 
-**Report** (or `r`) downloads the selected runs as an A4 PDF: a run table, a summary of final values,
-one vector chart per metric with every run overlaid, the media of each tag at one step and the config
-files. Its dialog picks the runs, metrics, media tags, step and orientation, starting from what the
-viewer shows. Charts follow the viewer's smoothing, log scales and zoom. A video is shown as one grid
-of its frames, evenly subsampled to 64 frames when longer.
+**Report**, at the end of the selected-run chips (or `r`), downloads the selected runs as an A4 PDF:
+a run table, a summary of final values, one vector chart per metric with every run overlaid, the
+media of each tag at one step and the config files. Its dialog picks the runs, orientation and
+sections, and the metrics and media tags from a nested tree with a filter, starting from what the
+viewer shows. Charts follow the viewer's smoothing, log scales and zoom. A video is shown as one
+grid of its frames, evenly subsampled to 64 frames when longer.
 
 ## 📁 Run directory
 

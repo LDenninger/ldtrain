@@ -3,21 +3,28 @@
 import { groupPathOf } from './groups.js';
 import { listMediaTags } from './media.js';
 import { listMetricCards } from './metrics.js';
-import { on, PALETTE_SIZE, selectedPaths, slotDash, state } from './state.js';
-import { el, formatIteration, swatch } from './util.js';
+import { PALETTE_SIZE, selectedPaths, slotDash, state } from './state.js';
+import { el, formatIteration, icon, setCaret, swatch } from './util.js';
 
 const dialogEl = document.getElementById('report');
 const formEl = document.getElementById('reportForm');
 const titleInput = document.getElementById('reportTitle');
 const runsEl = document.getElementById('reportRuns');
-const metricsEl = document.getElementById('reportMetrics');
-const mediaEl = document.getElementById('reportMedia');
+const filterInput = document.getElementById('reportFilter');
 const stepSelect = document.getElementById('reportStep');
 const errorEl = document.getElementById('reportError');
 const generateButton = document.getElementById('reportGenerate');
-const reportButton = document.getElementById('reportBtn');
+
+// one entry per tab: its tree, pane and tab button, and the count shown on the tab
+const TREES = {
+    metrics: { tree: document.getElementById('reportMetrics'), pane: document.getElementById('reportPaneMetrics'),
+        tab: document.getElementById('reportTabMetrics'), count: document.getElementById('reportMetricCount'), empty: 'No metrics logged yet for the selected runs.' },
+    media: { tree: document.getElementById('reportMedia'), pane: document.getElementById('reportPaneMedia'),
+        tab: document.getElementById('reportTabMedia'), count: document.getElementById('reportMediaCount'), empty: 'No media logged for the selected runs.' },
+};
 
 let lightPalette = [];
+let activeTab = 'metrics';
 
 // ---- palette ----
 
@@ -38,83 +45,188 @@ function reportRun(path) {
     return { path, color: lightPalette[slot % PALETTE_SIZE], dashed: slotDash(slot) !== null };
 }
 
-// ---- checklists ----
-
-function checkItem(value, checked, ...content) {
-    const label = el('label');
-    const box = el('input');
+function checkbox(checked) {
+    const box = el('input', 'cb');
     box.type = 'checkbox';
-    box.value = value;
     box.checked = checked;
-    label.append(box, ...content);
-    return label;
+    return box;
 }
 
-/** Check boxes under one heading per group path, a heading toggling every box of its group. */
-function renderGroupedList(container, items) {
-    const nodes = [];
-    let currentGroup = null;
+// ---- runs ----
+
+function renderRuns() {
+    runsEl.replaceChildren(...selectedPaths().map((path) => {
+        const run = reportRun(path);
+        const lastIteration = state.runs.get(path)?.last_iteration;
+        const box = checkbox(!state.hidden.has(path));
+        box.value = path;
+        const parent = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
+        const label = el('label', 'rd-run');
+        label.title = path;
+        label.style.setProperty('--c', run.color);
+        const pathEl = el('span', 'path');
+        pathEl.append(el('span', 'parent', parent), el('span', 'name', path.slice(parent.length)));
+        label.append(box, swatch(run.color, run.dashed), pathEl,
+            el('span', 'iter num', lastIteration === null || lastIteration === undefined ? '' : formatIteration(lastIteration)));
+        const item = el('li');
+        item.append(label);
+        return item;
+    }));
+    updateRunCount();
+}
+
+function updateRunCount() {
+    const boxes = [...runsEl.querySelectorAll('input')];
+    document.getElementById('reportRunCount').textContent = `${boxes.filter((box) => box.checked).length}/${boxes.length}`;
+}
+
+// ---- content trees ----
+
+/**
+ * Nest `/`-separated keys into groups to any depth, keeping the order they arrive in.
+ * A group lists its own leaves before its subgroups, as the viewer's sections do.
+ */
+function buildTree(items) {
+    const root = { path: '', name: '', leaves: [], groups: new Map() };
     for (const item of items) {
         const groupPath = groupPathOf(item.key);
-        if (groupPath !== currentGroup) {
-            currentGroup = groupPath;
-            const heading = checkItem('', false, groupPath ? `${groupPath}/` : 'ungrouped');
-            heading.classList.add('grp');
-            heading.dataset.group = groupPath;
-            nodes.push(heading);
+        let node = root;
+        if (groupPath) {
+            const segments = groupPath.split('/');
+            segments.forEach((segment, ii) => {
+                const path = segments.slice(0, ii + 1).join('/');
+                if (!node.groups.has(path)) node.groups.set(path, { path, name: segment, leaves: [], groups: new Map() });
+                node = node.groups.get(path);
+            });
         }
-        const leaf = item.key.slice(groupPath ? groupPath.length + 1 : 0);
-        const label = checkItem(item.key, item.checked, el('span', 'name', leaf), ...(item.extra ?? []));
-        label.dataset.group = groupPath;
-        nodes.push(label);
+        node.leaves.push({ ...item, name: groupPath ? item.key.slice(groupPath.length + 1) : item.key });
     }
-    container.replaceChildren(...(nodes.length ? nodes : [el('div', 'muted', 'Nothing logged for the selected runs.')]));
-    syncGroupBoxes(container);
+    return root;
 }
 
-function leafBoxes(container, group = null) {
-    return [...container.querySelectorAll('label:not(.grp)')].filter((label) => group === null || label.dataset.group === group).map((label) => label.firstChild);
+function renderLeaf(leaf) {
+    const item = el('li', 'tleaf');
+    item.setAttribute('role', 'treeitem');
+    item.dataset.key = leaf.key;
+    const row = el('label', 'trow');
+    row.title = leaf.key;
+    const box = checkbox(leaf.checked);
+    box.dataset.key = leaf.key;
+    row.append(box, el('span', 'tname', leaf.name));
+    if (leaf.meta) row.append(leaf.meta);
+    item.append(row);
+    return item;
 }
 
-function syncGroupBoxes(container) {
-    for (const heading of container.querySelectorAll('label.grp')) {
-        const boxes = leafBoxes(container, heading.dataset.group);
+function renderGroup(group) {
+    const item = el('li', 'tgroup');
+    item.setAttribute('role', 'treeitem');
+    item.setAttribute('aria-expanded', 'true');
+    const row = el('div', 'trow');
+    const twist = el('button', 'twist');
+    twist.type = 'button';
+    twist.setAttribute('aria-label', `Collapse ${group.path}`);
+    twist.append(icon('chevron-down', 'icon caret'));
+    const label = el('label', 'tlabel');
+    label.title = `${group.path}/`;
+    label.append(checkbox(false), el('span', 'tname', group.name));
+    row.append(twist, label, el('span', 'tcount num'));
+    const children = el('ul', 'tchildren');
+    children.setAttribute('role', 'group');
+    children.append(...group.leaves.map(renderLeaf), ...[...group.groups.values()].map(renderGroup));
+    item.append(row, children);
+    return item;
+}
+
+function renderTree(name, items) {
+    const { tree, empty } = TREES[name];
+    const root = buildTree(items);
+    const nodes = [...root.leaves.map(renderLeaf), ...[...root.groups.values()].map(renderGroup)];
+    tree.replaceChildren(...(nodes.length ? nodes : [el('li', 'tempty', empty)]));
+    applyFilter(name);
+}
+
+function leafBoxes(scope, visibleOnly = false) {
+    return [...scope.querySelectorAll('input[data-key]')].filter((box) => !visibleOnly || !box.closest('li.tleaf').hidden);
+}
+
+/** Recompute every group's checkbox, count and visibility, and the tab's count, from the leaves. */
+function refreshTree(name) {
+    const { tree, count } = TREES[name];
+    for (const groupEl of tree.querySelectorAll('li.tgroup')) {
+        const boxes = leafBoxes(groupEl);
         const checkedCount = boxes.filter((box) => box.checked).length;
-        heading.firstChild.checked = checkedCount === boxes.length;
-        heading.firstChild.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+        const groupBox = groupEl.querySelector(':scope > .trow input');
+        groupBox.checked = boxes.length > 0 && checkedCount === boxes.length;
+        groupBox.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+        groupEl.querySelector(':scope > .trow .tcount').textContent = `${checkedCount}/${boxes.length}`;
+        groupEl.hidden = leafBoxes(groupEl, true).length === 0;
     }
-    const counts = { reportMetrics: 'reportMetricCount', reportMedia: 'reportMediaCount' };
-    const boxes = leafBoxes(container);
-    document.getElementById(counts[container.id]).textContent = boxes.length ? `${boxes.filter((box) => box.checked).length} of ${boxes.length}` : '';
+    const boxes = leafBoxes(tree);
+    count.textContent = boxes.length ? `${boxes.filter((box) => box.checked).length}/${boxes.length}` : '';
 }
 
-function checkedValues(container) {
-    return leafBoxes(container).filter((box) => box.checked).map((box) => box.value);
+/** Keys matching the filter like the viewer's metric filter: a substring, or a /regex/. */
+function keyMatches(key, filter) {
+    if (!filter) return true;
+    if (filter.length > 2 && filter.startsWith('/') && filter.endsWith('/')) {
+        try {
+            return new RegExp(filter.slice(1, -1)).test(key);
+        } catch {
+            return true;  // incomplete regex while typing
+        }
+    }
+    return key.toLowerCase().includes(filter.toLowerCase());
 }
 
-function initChecklist(container) {
-    container.addEventListener('change', (event) => {
-        const heading = event.target.closest('label.grp');
-        if (heading) for (const box of leafBoxes(container, heading.dataset.group)) box.checked = event.target.checked;
-        syncGroupBoxes(container);
+function applyFilter(name) {
+    const filter = filterInput.value.trim();
+    for (const leaf of TREES[name].tree.querySelectorAll('li.tleaf')) leaf.hidden = !keyMatches(leaf.dataset.key, filter);
+    refreshTree(name);
+}
+
+function toggleCollapsed(groupEl) {
+    const collapsed = groupEl.classList.toggle('collapsed');
+    groupEl.setAttribute('aria-expanded', String(!collapsed));
+    const twist = groupEl.querySelector(':scope > .trow .twist');
+    setCaret(twist.querySelector('.caret'), !collapsed);
+    twist.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} ${groupEl.querySelector(':scope > .trow .tlabel').title.slice(0, -1)}`);
+}
+
+function initTree(name) {
+    const { tree, tab } = TREES[name];
+    tree.addEventListener('change', (event) => {
+        const groupEl = event.target.closest('li.tgroup');
+        if (groupEl && event.target === groupEl.querySelector(':scope > .trow input')) {
+            for (const box of leafBoxes(groupEl, true)) box.checked = event.target.checked;  // only what the filter shows
+        }
+        refreshTree(name);
     });
+    tree.addEventListener('click', (event) => {
+        const twist = event.target.closest('.twist');
+        if (twist) toggleCollapsed(twist.closest('li.tgroup'));
+    });
+    tab.addEventListener('click', () => selectTab(name));
+}
+
+function selectTab(name) {
+    activeTab = name;
+    for (const [key, entry] of Object.entries(TREES)) {
+        entry.tab.setAttribute('aria-selected', String(key === name));
+        entry.tab.tabIndex = key === name ? 0 : -1;
+        entry.pane.hidden = key !== name;
+    }
 }
 
 // ---- dialog ----
 
-function renderRuns() {
-    const paths = selectedPaths();
-    runsEl.replaceChildren(...paths.map((path) => {
-        const run = reportRun(path);
-        const label = checkItem(path, !state.hidden.has(path), swatch(run.color, run.dashed), el('span', 'name', path));
-        label.title = path;
-        return label;
-    }));
-}
-
 function renderMedia() {
     const { tags, steps, step } = listMediaTags();
-    renderGroupedList(mediaEl, tags.map(({ tag, kind }) => ({ key: tag, checked: true, extra: [el('span', 'kind', kind)] })));
+    renderTree('media', tags.map(({ tag, kind }) => {
+        const kindIcon = icon(kind === 'video' ? 'play' : 'image', 'icon kind');
+        kindIcon.setAttribute('aria-label', kind);
+        return { key: tag, checked: true, meta: kindIcon };
+    }));
     const latest = el('option', '', steps.length ? `Latest (${steps[steps.length - 1].toLocaleString()})` : 'Latest');
     latest.value = '';
     stepSelect.replaceChildren(latest, ...[...steps].reverse().slice(1).map((value) => {
@@ -124,7 +236,7 @@ function renderMedia() {
     }));
     stepSelect.value = step === null || step === steps[steps.length - 1] ? '' : String(step);
     stepSelect.disabled = steps.length < 2;
-    document.getElementById('reportMediaSet').hidden = tags.length === 0;
+    stepSelect.closest('.rd-step').hidden = tags.length === 0;
 }
 
 function renderViewNote() {
@@ -132,7 +244,7 @@ function renderViewNote() {
     if (state.logy.size) parts.push(`log y on ${state.logy.size} metric${state.logy.size === 1 ? '' : 's'}`);
     const range = state.syncZoom ? state.xRange : null;
     if (range) parts.push(`iterations ${formatIteration(range[0])} to ${formatIteration(range[1])}`);
-    document.getElementById('reportViewNote').textContent = `Charts follow the viewer: ${parts.join(', ')}.`;
+    document.getElementById('reportViewNote').textContent = `Charts use the viewer's ${parts.join(', ')}.`;
 }
 
 export function openReport() {
@@ -141,10 +253,14 @@ export function openReport() {
     const paths = selectedPaths();
     titleInput.value = '';
     titleInput.placeholder = paths.length === 1 ? paths[0] : `Comparison of ${paths.length} runs`;
+    filterInput.value = '';
     renderRuns();
-    renderGroupedList(metricsEl, listMetricCards().map(({ metric, visible }) => ({ key: metric, checked: visible })));
+    renderTree('metrics', listMetricCards().map(({ metric, visible }) => ({
+        key: metric, checked: visible, meta: state.logy.has(metric) ? el('span', 'tag', 'log') : null,
+    })));
     renderMedia();
     renderViewNote();
+    selectTab('metrics');
     errorEl.hidden = true;
     dialogEl.classList.add('open');
     titleInput.focus();
@@ -160,20 +276,24 @@ export function isReportOpen() {
 
 // ---- download ----
 
+function checkedKeys(name) {
+    return leafBoxes(TREES[name].tree).filter((box) => box.checked).map((box) => box.dataset.key);
+}
+
 function buildRequest() {
-    const runs = checkedValues(runsEl);
+    const runs = new Set([...runsEl.querySelectorAll('input:checked')].map((box) => box.value));
     return {
         title: titleInput.value.trim(),
-        runs: selectedPaths().filter((path) => runs.includes(path)).map(reportRun),
-        metrics: checkedValues(metricsEl),
+        runs: selectedPaths().filter((path) => runs.has(path)).map(reportRun),
+        metrics: checkedKeys('metrics'),
         smoothing: state.smoothing,
         log_metrics: [...state.logy],
         x_range: state.syncZoom ? state.xRange : null,
-        media_tags: document.getElementById('reportMediaSet').hidden ? [] : checkedValues(mediaEl),
+        media_tags: checkedKeys('media'),
         media_step: stepSelect.value === '' ? null : Number(stepSelect.value),
         include_summary: document.getElementById('reportSummary').checked,
         include_config: document.getElementById('reportConfig').checked,
-        orientation: document.getElementById('reportOrientation').value,
+        orientation: formEl.elements.orientation.value,
     };
 }
 
@@ -209,16 +329,16 @@ async function generate(event) {
     if (!body.runs.length) return showError('Pick at least one run.');
     errorEl.hidden = true;
     generateButton.disabled = true;
-    const label = generateButton.lastChild;
+    const label = generateButton.querySelector('span');
     label.textContent = 'Rendering…';
     try {
         const response = await fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (!response.ok) return showError(`Report failed (${response.status}): ${await describeFailure(response)}`);
+        if (!response.ok) return showError(`The report failed (${response.status}): ${await describeFailure(response)}`);
         const fileName = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? 'report.pdf';
         saveBlob(await response.blob(), fileName);
         closeReport();
     } catch (error) {
-        showError(`Report failed: ${error.message}`);
+        showError(`The report failed: ${error.message}`);
     } finally {
         generateButton.disabled = false;
         label.textContent = 'Download PDF';
@@ -226,20 +346,20 @@ async function generate(event) {
 }
 
 export function initReport() {
-    reportButton.addEventListener('click', openReport);
-    on('selection', () => (reportButton.disabled = state.selected.size === 0));
-    initChecklist(metricsEl);
-    initChecklist(mediaEl);
+    initTree('metrics');
+    initTree('media');
+    runsEl.addEventListener('change', updateRunCount);
+    filterInput.addEventListener('input', () => Object.keys(TREES).forEach(applyFilter));
+    for (const [id, checked] of [['reportAll', true], ['reportNone', false]]) {
+        document.getElementById(id).addEventListener('click', () => {
+            for (const box of leafBoxes(TREES[activeTab].tree, true)) box.checked = checked;
+            refreshTree(activeTab);
+        });
+    }
     formEl.addEventListener('submit', generate);
-    formEl.addEventListener('click', (event) => {
-        const all = event.target.closest('[data-all], [data-none]');
-        if (!all) return;
-        const container = document.getElementById(all.dataset.all ?? all.dataset.none);
-        for (const box of leafBoxes(container)) box.checked = 'all' in all.dataset;
-        syncGroupBoxes(container);
-    });
     document.getElementById('reportCancel').addEventListener('click', closeReport);
+    document.getElementById('reportClose').addEventListener('click', closeReport);
     dialogEl.addEventListener('click', (event) => {
-        if (event.target === dialogEl || event.target.closest('.dialog-close')) closeReport();
+        if (event.target === dialogEl) closeReport();
     });
 }
