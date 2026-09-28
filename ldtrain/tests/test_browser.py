@@ -5,6 +5,7 @@ import socket
 import threading
 import time
 from collections.abc import Iterator
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -314,6 +315,50 @@ def test_config_is_highlighted_and_copies(view: Page, viewer_url: str) -> None:
     view.locator('#cfgCopy').click()
     expect(view.locator('#cfgCopy')).to_have_text('Copied')
     assert view.evaluate('navigator.clipboard.readText()').startswith('model:')
+
+
+#---------------------------------------------------------------------
+# report
+#---------------------------------------------------------------------
+
+def test_report_dialog_defaults_to_the_view_and_downloads_a_pdf(view: Page, viewer_url: str) -> None:
+    open_runs(view, viewer_url, RUN_1, RUN_2, extra=f'&m=train/&hide={RUN_2}')
+    expect(view.locator('#media .card')).to_have_count(3)
+    view.keyboard.press('r')
+    dialog = view.locator('#report')
+    expect(dialog).to_have_class('overlay open')
+    expect(view.locator('#reportTitle')).to_have_attribute('placeholder', 'Comparison of 2 runs')
+    runs = view.locator('#reportRuns input')
+    expect(runs).to_have_count(2)
+    expect(runs.nth(0)).to_be_checked()
+    expect(runs.nth(1)).not_to_be_checked()  # hidden in the viewer, so left out by default
+    expect(view.locator('#reportMetricCount')).to_have_text('2 of 3')  # the metric filter train/ matches 2 of 3
+    expect(view.locator('#reportMediaCount')).to_have_text('3 of 3')
+
+    runs.nth(0).focus()
+    view.keyboard.press('x')  # viewer keys stay off while the dialog is open
+    expect(view.locator('#chips .chip')).to_have_count(2)
+    view.locator('#reportMedia label.grp', has_text='val/').locator('input').uncheck()
+    expect(view.locator('#reportMediaCount')).to_have_text('1 of 3')
+
+    view.locator('#reportTitle').fill('first run')
+    with view.expect_download() as download_info:
+        view.locator('#reportGenerate').click()
+    download = download_info.value
+    assert download.suggested_filename == 'first_run.pdf'
+    assert Path(download.path()).read_bytes().startswith(b'%PDF-')
+    expect(dialog).not_to_have_class('overlay open')
+
+
+def test_report_button_needs_a_selection(view: Page, viewer_url: str) -> None:
+    open_view(view, viewer_url)
+    expect(view.locator('#reportBtn')).to_be_disabled()
+    view.locator(f'[role=treeitem][data-path="{RUN_1}"] .row').click()
+    expect(view.locator('#reportBtn')).to_be_enabled()
+    view.locator('#reportBtn').click()
+    expect(view.locator('#report')).to_have_class('overlay open')
+    view.keyboard.press('Escape')
+    expect(view.locator('#report')).not_to_have_class('overlay open')
 
 
 #---------------------------------------------------------------------

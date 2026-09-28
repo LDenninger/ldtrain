@@ -339,6 +339,31 @@ main { overflow: auto; min-height: 0; }
 .lb-next { right: var(--s4); top: 50%; transform: translateY(-50%); }
 .lb-close { right: var(--s4); top: var(--s4); }
 
+/* report dialog */
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.primary:hover { background: var(--accent); opacity: .9; }
+.report-dialog { max-height: 88vh; overflow: auto; display: flex; flex-direction: column; gap: var(--s4); }
+.report-dialog h2 { margin: 0; }
+.report-dialog fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
+.report-dialog legend { font-weight: 600; font-size: var(--fs-sm); padding: 0; margin-bottom: var(--s2); display: flex; gap: var(--s3); align-items: baseline; }
+.report-dialog legend .count { color: var(--text-muted); font-weight: 400; }
+.field { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); font-weight: 600; }
+.field .input { font-weight: 400; }
+.field.inline { flex-direction: row; align-items: center; gap: var(--s2); font-weight: 400; color: var(--text-muted); }
+.checklist { display: flex; flex-direction: column; gap: 2px; max-height: 200px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r-ctl); padding: var(--s1) var(--s2); }
+.checklist label { display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-sm); min-height: 24px; cursor: pointer; }
+.checklist label .name { font-family: var(--font-mono); }
+.checklist .kind { color: var(--text-muted); font-size: var(--fs-xs); }
+.checklist .grp { font-weight: 600; color: var(--text-muted); margin-top: var(--s1); }
+.checklist .grp ~ label:not(.grp) { padding-left: var(--s5); }
+.checklist .muted { font-size: var(--fs-sm); padding: var(--s1) 0; }
+.report-dialog input[type=checkbox] { accent-color: var(--accent); margin: 0; }
+.report-dialog .options { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); align-items: center; font-size: var(--fs-sm); }
+.report-dialog .options > label { display: flex; align-items: center; gap: var(--s2); }
+.report-dialog .note { margin: var(--s2) 0 0; }
+.report-dialog #reportMediaSet .field { margin-top: var(--s2); }
+.dialog-foot { display: flex; justify-content: flex-end; gap: var(--s2); }
+
 @media (prefers-reduced-motion: reduce) {
   .dot.pulse, .card.fresh { animation: none; }
 }

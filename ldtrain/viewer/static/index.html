@@ -27,6 +27,7 @@
   <symbol id="i-theme" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11A5.5 5.5 0 0 0 8 2.5z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-help" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M6.3 6.4a1.8 1.8 0 1 1 2.6 1.6c-.6.3-.9.7-.9 1.3M8 11.3v.2"/></symbol>
   <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-report" viewBox="0 0 16 16"><path d="M4 1.5h5.5l3 3v10h-8.5z"/><path d="M9.5 1.5v3h3M6.5 8v4M8.5 10v2M10.5 7v5"/></symbol>
   <symbol id="i-image" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 10.5l3-3 2.5 2.5 2-2 3.5 3.5"/><circle cx="10" cy="6.5" r=".9" fill="currentColor" stroke="none"/></symbol>
 </svg>
 
@@ -35,6 +36,7 @@
   <span class="crumb" id="rootPath"></span>
   <span class="spacer"></span>
   <span class="poll" id="pollStatus"><span class="dot" id="pollDot"></span><span id="pollText">connecting</span></span>
+  <button class="btn ghost" id="reportBtn" title="Report as PDF (r)" disabled><svg class="icon"><use href="#i-report"/></svg>Report</button>
   <button class="btn ghost" id="themeBtn" title="Theme (d)"><svg class="icon"><use href="#i-theme"/></svg><span id="themeLabel">auto</span></button>
   <button class="btn ghost square" id="helpBtn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><svg class="icon"><use href="#i-help"/></svg></button>
 </header>
@@ -152,10 +154,46 @@
       <tr><td><kbd>s</kbd> then <kbd>Left</kbd> <kbd>Right</kbd></td><td>Smoothing by 0.05</td><td><kbd>y</kbd> <kbd>Y</kbd></td><td>Log scale on the hovered chart, on all</td></tr>
       <tr><td><kbd>z</kbd></td><td>Reset zoom</td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Media step back, forward</td></tr>
       <tr><td><kbd>1</kbd> to <kbd>4</kbd></td><td>Jump to metrics, media, log, config</td><td><kbd>d</kbd></td><td>Cycle the theme</td></tr>
-      <tr><td><kbd>Esc</kbd></td><td>Clear a filter, close, or leave a field</td><td><kbd>?</kbd></td><td>This overlay</td></tr>
+      <tr><td><kbd>r</kbd></td><td>Report the selection as a PDF</td><td><kbd>?</kbd></td><td>This overlay</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Clear a filter, close, or leave a field</td><td></td><td></td></tr>
     </table>
     <p class="note">With the mouse: click a run to add and focus it, click its cross or Ctrl-click to remove it, Alt-click to show only that run, Shift-click for a range. Click a folder to select or clear every run in it, and its chevron to expand or collapse it. Drag on a chart to zoom, double-click to reset. Click a chip or legend entry to hide a run everywhere, double-click a chip to focus it.</p>
   </div>
+</div>
+
+<div class="overlay" id="report" role="dialog" aria-modal="true" aria-labelledby="reportHeading">
+  <form class="dialog report-dialog" id="reportForm">
+    <button type="button" class="btn ghost square dialog-close" title="Close (Esc)" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+    <h2 id="reportHeading">Report</h2>
+    <label class="field"><span>Title</span><input class="input" id="reportTitle" autocomplete="off" maxlength="200"></label>
+    <fieldset>
+      <legend>Runs</legend>
+      <div class="checklist" id="reportRuns"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Metrics <span class="count" id="reportMetricCount"></span><button type="button" class="linkbtn" data-all="reportMetrics">All</button><button type="button" class="linkbtn" data-none="reportMetrics">None</button></legend>
+      <div class="checklist grouped" id="reportMetrics"></div>
+    </fieldset>
+    <fieldset id="reportMediaSet">
+      <legend>Media <span class="count" id="reportMediaCount"></span><button type="button" class="linkbtn" data-all="reportMedia">All</button><button type="button" class="linkbtn" data-none="reportMedia">None</button></legend>
+      <div class="checklist grouped" id="reportMedia"></div>
+      <label class="field inline"><span>Step</span><select class="select" id="reportStep"></select></label>
+    </fieldset>
+    <fieldset>
+      <legend>Layout</legend>
+      <div class="options">
+        <label><input type="checkbox" id="reportSummary" checked> Summary table</label>
+        <label><input type="checkbox" id="reportConfig" checked> Config files</label>
+        <label class="field inline"><span>Pages</span><select class="select" id="reportOrientation"><option value="portrait">A4 portrait</option><option value="landscape">A4 landscape</option></select></label>
+      </div>
+      <p class="note" id="reportViewNote"></p>
+    </fieldset>
+    <div class="strip error" id="reportError" hidden></div>
+    <div class="dialog-foot">
+      <button type="button" class="btn" id="reportCancel">Cancel</button>
+      <button type="submit" class="btn primary" id="reportGenerate"><svg class="icon"><use href="#i-arrow-down"/></svg>Download PDF</button>
+    </div>
+  </form>
 </div>
 
 </body>

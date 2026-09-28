@@ -39,7 +39,9 @@ dependencies = [
 # `python -m ldtrain.viewer <root_dir>` or `ldtrain-viewer`; training code never imports it
 viewer = [
     "fastapi",
+    "matplotlib",
     "uvicorn",
+    "weasyprint",
 ]
 dev = [
     "ldtrain[viewer]",

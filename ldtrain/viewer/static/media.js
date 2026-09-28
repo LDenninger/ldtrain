@@ -218,6 +218,12 @@ export function renderMedia() {
     if (lightbox) renderLightbox();
 }
 
+/** Tags in display order with their kind, the known steps and the chosen step (null = latest), for the report dialog. */
+export function listMediaTags() {
+    const tags = [...mediaEl.querySelectorAll('.card[data-key]')].map((cardEl) => ({ tag: cardEl.dataset.key, kind: cards.get(cardEl.dataset.key).kind }));
+    return { tags, steps: [...steps], step: state.mediaStep === null ? null : currentStep() };
+}
+
 function setMediaStep(step) {
     state.mediaStep = step;
     renderMedia();

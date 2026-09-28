@@ -3,7 +3,7 @@
 import { debounce, loadPref } from './util.js';
 
 const LIVE_WINDOW_S = 600;
-const PALETTE_SIZE = 12;
+export const PALETTE_SIZE = 12;
 
 export const state = {
     //--- run tree ---
