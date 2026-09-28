@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in logging, the run directory or the viewer does not work as documented.
+labels: [bug]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Logging (console, log files, initialize)
+        - Metrics (MetricTracker, metrics.csv)
+        - Images and videos
+        - Distributed training (torchrun, NCCL)
+        - Viewer
+        - I/O utilities (ldtrain.utils.files)
+        - Install or packaging
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: The smallest script or command that shows the bug.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Traceback or logs
+      description: The full traceback, or the relevant lines of the run's log file or the browser console.
+      render: text
+  - type: input
+    id: ldtrain-version
+    attributes:
+      label: ldtrain version
+      placeholder: v0.2.4 or a commit hash
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Python, torch and OS version, and the browser for a viewer bug.
+      placeholder: |
+        Python 3.12.4, torch 2.5.1, Ubuntu 24.04
+        Firefox 131
+    validations:
+      required: true
