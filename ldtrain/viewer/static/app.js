@@ -8,6 +8,7 @@ import {
     deselectRun, emit, focusRun, indexTree, isLive, on, pruneSelection, readPalette, readUrl, runColor,
     runDash, selectedPaths, state, toggleHidden,
 } from './state.js';
+import { closeReport, initReport, isReportOpen, openReport } from './report.js';
 import { focusTree, initTree } from './tree.js';
 import { OfflineError, el, fetchJson, formatAge, icon, isTyping, loadPref, savePref, setCaret, shortName, swatch } from './util.js';
 
@@ -149,11 +150,19 @@ function buildRunChip(path) {
 function renderChips() {
     const chipsEl = document.getElementById('chips');
     const chips = selectedPaths().map(buildRunChip);
-    if (chips.length > 1) {
+    if (!chips.length) return chipsEl.replaceChildren();
+    chips.push(el('span', 'spacer'));
+    if (state.selected.size > 1) {
         const clear = el('button', 'linkbtn', 'Clear all');
         clear.addEventListener('click', () => document.getElementById('clearSel').click());
-        chips.push(el('span', 'spacer'), clear);
+        chips.push(clear);
     }
+    const report = el('button', 'btn report-btn');
+    report.id = 'reportBtn';
+    report.title = 'Download the selected runs as a PDF report (r)';
+    report.append(icon('report'), 'Report');
+    report.addEventListener('click', openReport);
+    chips.push(report);
     chipsEl.replaceChildren(...chips);
 }
 
@@ -312,6 +321,7 @@ let smoothingMode = false;
 
 function handleEscape() {
     if (isLightboxOpen()) return closeLightbox();
+    if (isReportOpen()) return closeReport();
     if (helpEl.classList.contains('open')) return helpEl.classList.remove('open');
     const active = document.activeElement;
     if (active?.id === 'metricFilter' && active.value) return setMetricFilter('');
@@ -334,6 +344,7 @@ const SHORTCUTS = {
     '[': () => stepMedia(-1),
     ']': () => stepMedia(1),
     'd': cycleTheme,
+    'r': openReport,
     '?': () => helpEl.classList.add('open'),
     '1': () => jumpTo('sec-metrics'),
     '2': () => jumpTo('sec-media'),
@@ -352,6 +363,7 @@ function handleKeydown(event) {
         cycleLightbox(event.key === 'ArrowRight' ? 1 : -1);
         return;
     }
+    if (isReportOpen()) return;  // the dialog's checkboxes and selects are not text fields, keep the viewer keys off
     if (isTyping() || event.ctrlKey || event.metaKey || event.altKey) return;
     if (smoothingMode && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
         event.preventDefault();
@@ -397,6 +409,7 @@ async function boot() {
     initMedia();
     initLogConfig();
     initHelp();
+    initReport();
     document.getElementById('themeBtn').addEventListener('click', cycleTheme);
     document.addEventListener('keydown', handleKeydown);
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {

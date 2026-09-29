@@ -27,6 +27,7 @@
   <symbol id="i-theme" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11A5.5 5.5 0 0 0 8 2.5z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-help" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M6.3 6.4a1.8 1.8 0 1 1 2.6 1.6c-.6.3-.9.7-.9 1.3M8 11.3v.2"/></symbol>
   <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-report" viewBox="0 0 16 16"><path d="M4 1.5h5.5l3 3v10h-8.5z"/><path d="M9.5 1.5v3h3M6.5 8v4M8.5 10v2M10.5 7v5"/></symbol>
   <symbol id="i-image" viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M2.5 10.5l3-3 2.5 2.5 2-2 3.5 3.5"/><circle cx="10" cy="6.5" r=".9" fill="currentColor" stroke="none"/></symbol>
 </svg>
 
@@ -152,10 +153,62 @@
       <tr><td><kbd>s</kbd> then <kbd>Left</kbd> <kbd>Right</kbd></td><td>Smoothing by 0.05</td><td><kbd>y</kbd> <kbd>Y</kbd></td><td>Log scale on the hovered chart, on all</td></tr>
       <tr><td><kbd>z</kbd></td><td>Reset zoom</td><td><kbd>[</kbd> <kbd>]</kbd></td><td>Media step back, forward</td></tr>
       <tr><td><kbd>1</kbd> to <kbd>4</kbd></td><td>Jump to metrics, media, log, config</td><td><kbd>d</kbd></td><td>Cycle the theme</td></tr>
-      <tr><td><kbd>Esc</kbd></td><td>Clear a filter, close, or leave a field</td><td><kbd>?</kbd></td><td>This overlay</td></tr>
+      <tr><td><kbd>r</kbd></td><td>Report the selection as a PDF</td><td><kbd>?</kbd></td><td>This overlay</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Clear a filter, close, or leave a field</td><td></td><td></td></tr>
     </table>
     <p class="note">With the mouse: click a run to add and focus it, click its cross or Ctrl-click to remove it, Alt-click to show only that run, Shift-click for a range. Click a folder to select or clear every run in it, and its chevron to expand or collapse it. Drag on a chart to zoom, double-click to reset. Click a chip or legend entry to hide a run everywhere, double-click a chip to focus it.</p>
   </div>
+</div>
+
+<div class="overlay" id="report" role="dialog" aria-modal="true" aria-labelledby="reportHeading">
+  <form class="dialog report-dialog" id="reportForm">
+    <div class="rd-head">
+      <h2 id="reportHeading">Report</h2>
+      <button type="button" class="btn ghost square" id="reportClose" title="Close (Esc)" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <label class="rd-title"><span>Title</span><input class="input" id="reportTitle" autocomplete="off" maxlength="200"></label>
+    <div class="rd-body">
+      <div class="rd-side">
+        <section class="rd-block" aria-labelledby="reportRunsLabel">
+          <div class="rd-label"><span id="reportRunsLabel">Runs</span><span class="count num" id="reportRunCount"></span></div>
+          <ul class="rd-runs" id="reportRuns"></ul>
+        </section>
+        <section class="rd-block" aria-labelledby="reportPagesLabel">
+          <div class="rd-label"><span id="reportPagesLabel">Pages</span></div>
+          <div class="seg" role="radiogroup" aria-labelledby="reportPagesLabel">
+            <label><input type="radio" name="orientation" value="portrait" checked><span>Portrait</span></label>
+            <label><input type="radio" name="orientation" value="landscape"><span>Landscape</span></label>
+          </div>
+          <label class="rd-check"><input type="checkbox" class="cb" id="reportSummary" checked><span>Summary table of final values</span></label>
+          <label class="rd-check"><input type="checkbox" class="cb" id="reportConfig" checked><span>Config files</span></label>
+        </section>
+        <p class="rd-note" id="reportViewNote"></p>
+      </div>
+      <div class="rd-main">
+        <div class="rd-tabs" role="tablist" aria-label="Report content">
+          <button type="button" role="tab" class="rd-tab" id="reportTabMetrics" aria-controls="reportPaneMetrics" aria-selected="true">Metrics <span class="count num" id="reportMetricCount"></span></button>
+          <button type="button" role="tab" class="rd-tab" id="reportTabMedia" aria-controls="reportPaneMedia" aria-selected="false">Media <span class="count num" id="reportMediaCount"></span></button>
+          <span class="spacer"></span>
+          <input class="input small" id="reportFilter" placeholder="Filter" aria-label="Filter the list" autocomplete="off">
+          <button type="button" class="linkbtn" id="reportAll">All</button>
+          <button type="button" class="linkbtn" id="reportNone">None</button>
+        </div>
+        <div class="rd-pane" id="reportPaneMetrics" role="tabpanel" aria-labelledby="reportTabMetrics">
+          <ul class="ctree" id="reportMetrics" role="tree" aria-multiselectable="true" aria-label="Metrics"></ul>
+        </div>
+        <div class="rd-pane" id="reportPaneMedia" role="tabpanel" aria-labelledby="reportTabMedia" hidden>
+          <ul class="ctree" id="reportMedia" role="tree" aria-multiselectable="true" aria-label="Media tags"></ul>
+          <label class="rd-step"><span>Step</span><select class="select" id="reportStep"></select><span class="muted">each run shows its latest visual up to this step</span></label>
+        </div>
+      </div>
+    </div>
+    <div class="rd-foot">
+      <div class="strip error" id="reportError" role="alert" hidden></div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="reportCancel">Cancel</button>
+      <button type="submit" class="btn primary" id="reportGenerate"><svg class="icon"><use href="#i-arrow-down"/></svg><span>Download PDF</span></button>
+    </div>
+  </form>
 </div>
 
 </body>

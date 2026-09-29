@@ -1,12 +1,14 @@
 """Web viewer over a root directory of ldtrain runs.
 
 `create_app` builds a read-only FastAPI app: a JSON API backed by `reader` plus the
-static single-page frontend in `static/`. Run it with
+static single-page frontend in `static/`, and `POST /api/report`, which renders a PDF
+report of chosen runs (see `report`). Run it with
 `python -m ldtrain.viewer <root_dir> [--host 127.0.0.1] [--port 8765]` or the `ldtrain-viewer`
 command and open the printed URL. It binds to localhost by default; reach a cluster node through an SSH
 tunnel (`ssh -L 8765:localhost:8765 <node>`).
 """
 import argparse
+import re
 import socket
 import sys
 from dataclasses import asdict
@@ -14,11 +16,12 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from ldtrain.viewer import reader
 from ldtrain.viewer.reader import PathOutsideRoot
+from ldtrain.viewer.report import ReportRequest, default_title, render_report
 
 STATIC_DIR = Path(__file__).parent / 'static'
 
@@ -79,6 +82,16 @@ def create_app(root_dir: str | Path) -> FastAPI:
         if not file_path.is_file():
             raise HTTPException(status_code=404, detail=f'{path} does not exist')
         return FileResponse(file_path)
+
+    @app.post('/api/report')
+    def post_report(request: ReportRequest) -> Response:
+        run_dirs = [resolve_run(run.path) for run in request.runs]
+        try:
+            pdf = render_report(run_dirs, request)
+        except OSError as error:
+            raise HTTPException(status_code=501, detail=f'PDF rendering unavailable, WeasyPrint needs Pango: {error}')
+        file_name = re.sub(r'[^A-Za-z0-9._-]+', '_', request.title.strip() or default_title(request.runs)).strip('_') or 'report'
+        return Response(pdf, media_type='application/pdf', headers={'Content-Disposition': f'attachment; filename="{file_name}.pdf"'})
 
     @app.get('/')
     def get_index() -> FileResponse:

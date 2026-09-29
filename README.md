@@ -29,7 +29,7 @@ directory in one dashboard.
   process group is set up, each rank writes its own log file and rank 0 writes the run data.
 - **Run viewer:** a browser dashboard with a nested run tree, metrics of several runs overlaid in
   one chart, smoothing, synced zoom, images and videos by step, logs and configs, updated live
-  while a run trains.
+  while a run trains. It downloads a PDF report of one run or a comparison of several.
 - **I/O utilities:** `ldtrain.utils.files` reads and writes images, videos, JSON and YAML.
 
 ## 📦 Install
@@ -61,7 +61,8 @@ pip install -e ".[dev]"          # the same without uv
 ### Dependencies
 
 Python 3.12 or newer. PyTorch, NumPy, OpenCV, PyYAML and OmegaConf are installed as dependencies.
-The viewer adds FastAPI and uvicorn.
+The viewer adds FastAPI and uvicorn, and matplotlib and WeasyPrint for PDF reports. WeasyPrint needs
+the Pango library, which desktop Linux ships; without it the viewer runs and only reports fail.
 
 ## 🚀 Usage
 
@@ -112,6 +113,13 @@ only. To use it on a remote machine, forward the port with `ssh -L 8765:localhos
 
 Metrics and media are grouped by the `/` segments of their names, to any depth: `train/loss/total`
 sits in the collapsible group `train`, subgroup `loss`.
+
+**Report**, at the end of the selected-run chips (or `r`), downloads the selected runs as an A4 PDF:
+a run table, a summary of final values, one vector chart per metric with every run overlaid, the
+media of each tag at one step and the config files. Its dialog picks the runs, orientation and
+sections, and the metrics and media tags from a nested tree with a filter, starting from what the
+viewer shows. Charts follow the viewer's smoothing, log scales and zoom. A video is shown as one
+grid of its frames, evenly subsampled to 64 frames when longer.
 
 ## 📁 Run directory
 

@@ -546,6 +546,11 @@ function applyFilter() {
     renderStatus(visibleCount);
 }
 
+/** Metrics in display order, with whether the metric filter shows them, for the report dialog. */
+export function listMetricCards() {
+    return [...groupsEl.querySelectorAll('.card[data-metric]')].map((cardEl) => ({ metric: cardEl.dataset.metric, visible: !cardEl.hidden }));
+}
+
 // ---- log-y ----
 
 function toggleLogy(card) {
