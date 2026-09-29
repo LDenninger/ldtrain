@@ -35,18 +35,18 @@ directory in one dashboard.
 ## 📦 Install
 
 Install a release, the latest is on the [releases page](https://github.com/LDenninger/ldtrain/releases).
-Pin the tag with pip or uv, the repository is reached over SSH:
+Pin the tag with pip or uv:
 
 ```bash
-pip install "ldtrain[viewer] @ git+ssh://git@github.com/LDenninger/ldtrain@v0.2.3"
-uv add "ldtrain[viewer] @ git+ssh://git@github.com/LDenninger/ldtrain" --tag v0.2.3
+pip install "ldtrain[viewer] @ git+https://github.com/LDenninger/ldtrain@v0.2.4"
+uv add "ldtrain[viewer] @ git+https://github.com/LDenninger/ldtrain" --tag v0.2.4
 ```
 
 Or download the wheel attached to the release and install the file:
 
 ```bash
-gh release download v0.2.3 --repo LDenninger/ldtrain --pattern '*.whl'
-pip install "ldtrain-0.2.3-py3-none-any.whl[viewer]"
+gh release download v0.2.4 --repo LDenninger/ldtrain --pattern '*.whl'
+pip install "ldtrain-0.2.4-py3-none-any.whl[viewer]"
 ```
 
 Omit `[viewer]` in environments that only train. For development, clone and install editable with the
